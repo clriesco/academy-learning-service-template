@@ -18,12 +18,12 @@ connections: []
 contracts: []
 protocols: []
 skills:
-- valory/abstract_round_abci:0.1.0:bafybeih3enhagoql7kzpeyzzu2scpkif6y3ubakpralfnwxcvxexdyvy5i
-- valory/registration_abci:0.1.0:bafybeiek7zcsxbucjwzgqfftafhfrocvc7q4yxllh2q44jeemsjxg3rcfm
-- valory/reset_pause_abci:0.1.0:bafybeidw4mbx3os3hmv7ley7b3g3gja7ydpitr7mxbjpwzxin2mzyt5yam
-- valory/termination_abci:0.1.0:bafybeihq6qtbwt6i53ayqym63vhjexkcppy26gguzhhjqywfmiuqghvv44
-- valory/learning_abci:0.1.0:bafybeihkudvhu6hefjgbbnlggqe7r44i7skuoagb4imi746vn5e7jchkda
-- valory/transaction_settlement_abci:0.1.0:bafybeigtzlk4uakmd54rxnznorcrstsr52kta474lgrnvx5ovr546vj7sq
+- valory/abstract_round_abci:0.1.0:bafybeidzyj2cej3kpo7ofgr7lvznyncr3smtldtkcl5rj77rsohptzo2ki
+- valory/registration_abci:0.1.0:bafybeicrw3c7ahhuvbidsunz2jjvvvbmubb3orkr3bykyc2mt2waq4ve4u
+- valory/reset_pause_abci:0.1.0:bafybeid5kko3njjpvyw6bdgry3scozzbnjpphngx4d34r3krqgor7ils5u
+- valory/termination_abci:0.1.0:bafybeibnxkpret3ig5w6qny5kj5g6s7mxvpos2knl4tzhzw5bg47lg55ma
+- valory/learning_abci:0.1.0:bafybeig7fa6cvwd5vsa4gcgj5egspwhbkbebrk6qset6i3cgbjosdus4w4
+- valory/transaction_settlement_abci:0.1.0:bafybeihmhyjg4o7utnapjjjsetw7sqy55q3wveoosccbm7mtt4dkokespa
 behaviours:
   main:
     args: {}
@@ -138,6 +138,7 @@ models:
       coingecko_api_key: null
       default_chain_id: gnosis
       transfer_target_address: '0x0000000000000000000000000000000000000000'
+      erc20_token_address: '0x0000000000000000000000000000000000000000'
     class_name: Params
   randomness_api:
     args:

@@ -19,6 +19,7 @@ contracts:
 - valory/gnosis_safe_proxy_factory:0.1.0:bafybeib6podeifufgmawvicm3xyz3uaplbcrsptjzz4unpseh7qtcpar74
 - valory/multisend:0.1.0:bafybeig5byt5urg2d2bsecufxe5ql7f4mezg3mekfleeh32nmuusx66p4y
 - valory/service_registry:0.1.0:bafybeicbxmbzt757lbmyh6762lrkcrp3oeum6dk3z7pvosixasifsk6xlm
+- valory/erc20:0.1.0:bafybeigvftdxjgnlsoemst5d57cor36idywk7bwcfj2bjqijxdxo3xpurq
 protocols:
 - open_aea/signing:1.0.0:bafybeihv62fim3wl2bayavfcg3u5e5cxu3b7brtu4cn5xoxd6lqwachasi
 - valory/abci:0.1.0:bafybeiaqmp7kocbfdboksayeqhkbrynvlfzsx4uy4x6nohywnmaig4an7u
@@ -30,13 +31,13 @@ protocols:
 - valory/tendermint:0.1.0:bafybeig4mi3vmlv5zpbjbfuzcgida6j5f2nhrpedxicmrrfjweqc5r7cra
 skills:
 - valory/abstract_abci:0.1.0:bafybeihat4giyc4bz6zopvahcj4iw53356pbtwfn7p4d5yflwly2qhahum
-- valory/abstract_round_abci:0.1.0:bafybeih3enhagoql7kzpeyzzu2scpkif6y3ubakpralfnwxcvxexdyvy5i
-- valory/learning_abci:0.1.0:bafybeihkudvhu6hefjgbbnlggqe7r44i7skuoagb4imi746vn5e7jchkda
-- valory/learning_chained_abci:0.1.0:bafybeiev3w2jfidr6c45ufzvn5njxgdsyzorlg47bggub2t5uvyztds3mm
-- valory/registration_abci:0.1.0:bafybeiek7zcsxbucjwzgqfftafhfrocvc7q4yxllh2q44jeemsjxg3rcfm
-- valory/reset_pause_abci:0.1.0:bafybeidw4mbx3os3hmv7ley7b3g3gja7ydpitr7mxbjpwzxin2mzyt5yam
-- valory/termination_abci:0.1.0:bafybeihq6qtbwt6i53ayqym63vhjexkcppy26gguzhhjqywfmiuqghvv44
-- valory/transaction_settlement_abci:0.1.0:bafybeigtzlk4uakmd54rxnznorcrstsr52kta474lgrnvx5ovr546vj7sq
+- valory/abstract_round_abci:0.1.0:bafybeidzyj2cej3kpo7ofgr7lvznyncr3smtldtkcl5rj77rsohptzo2ki
+- valory/learning_abci:0.1.0:bafybeig7fa6cvwd5vsa4gcgj5egspwhbkbebrk6qset6i3cgbjosdus4w4
+- valory/learning_chained_abci:0.1.0:bafybeicfmzkqx3ke6xumbvhprjkultufa6swo2oqxelprqu6lshihpacsa
+- valory/registration_abci:0.1.0:bafybeicrw3c7ahhuvbidsunz2jjvvvbmubb3orkr3bykyc2mt2waq4ve4u
+- valory/reset_pause_abci:0.1.0:bafybeid5kko3njjpvyw6bdgry3scozzbnjpphngx4d34r3krqgor7ils5u
+- valory/termination_abci:0.1.0:bafybeibnxkpret3ig5w6qny5kj5g6s7mxvpos2knl4tzhzw5bg47lg55ma
+- valory/transaction_settlement_abci:0.1.0:bafybeihmhyjg4o7utnapjjjsetw7sqy55q3wveoosccbm7mtt4dkokespa
 default_ledger: ethereum
 required_ledgers:
 - ethereum
@@ -89,7 +90,7 @@ config:
       poa_chain: ${bool:false}
       default_gas_price_strategy: ${str:eip1559}
     gnosis:
-      address: ${str:http://localhost:8545}
+      address: ${str:https://virtual.gnosis.rpc.tenderly.co/3788a42c-5a42-4490-9afe-76f0bdedf7d0}
       chain_id: ${int:1337}
       poa_chain: ${bool:false}
       default_gas_price_strategy: ${str:eip1559}
@@ -120,7 +121,7 @@ type: skill
 models:
   benchmark_tool:
     args:
-      log_dir: ${str:/logs}
+      log_dir: ${str:/Users/charly/Sites/autonolas/academy-learning-service-template/logs}
   params:
     args:
       cleanup_history_depth: 1
@@ -161,8 +162,8 @@ models:
       service_id: learning
       service_registry_address: ${str:null}
       setup:
-        all_participants: ${list:["0x615d3278680337e2D39C3bc5042D959C7938B917"]}
-        safe_contract_address: ${str:0x5C5b146905c11Ee1fE7260c0338b52DCA9582a13}
+        all_participants: ${list:["0x0E358b95Ccb281005c46F807589c2443D7727723"]}
+        safe_contract_address: ${str:0xc76b7b0Bd9D04Cd0b24806e9bC920e2B8105B86e}
         consensus_threshold: ${int:null}
       share_tm_config_on_startup: ${bool:false}
       sleep_time: 1
@@ -187,4 +188,5 @@ models:
       coingecko_api_key: ${str:null}
       default_chain_id: ${str:gnosis}
       termination_from_block: ${int:34088325}
-      transfer_target_address: ${str:0x615d3278680337e2D39C3bc5042D959C7938B917}
+      transfer_target_address: ${str:0x0E358b95Ccb281005c46F807589c2443D7727723}
+      erc20_token_address: ${str:0xe91d153e0b41518a2ce8dd3d7944fa863463a97d}

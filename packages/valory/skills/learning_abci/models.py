@@ -54,4 +54,5 @@ class Params(BaseParams):
         self.transfer_target_address = self._ensure(
             "transfer_target_address", kwargs, str
         )
+        self.erc20_token_address = self._ensure("erc20_token_address", kwargs, str)
         super().__init__(*args, **kwargs)
