@@ -155,8 +155,8 @@ class DecisionMakingBehaviour(
 
         with self.context.benchmark_tool.measure(self.behaviour_id).local():
             decision = self.get_decision()
-            balance = yield from self._get_balance(self.params.transfer_target_address)
-            self.context.logger.info(f"Balance of agent with address {self.params.transfer_target_address}: {balance}")
+            #balance = yield from self._get_balance(self.params.transfer_target_address)
+            #self.context.logger.info(f"Balance of agent with address {self.params.transfer_target_address}: {balance}")
 
             erc20_balance = yield from self._get_ERC20_balance(self.params.transfer_target_address)
             self.context.logger.info(f"ERC20 Balance of agent with address {self.params.transfer_target_address}: {erc20_balance}")
@@ -194,6 +194,9 @@ class DecisionMakingBehaviour(
     def _get_ERC20_balance(self, agent: str) -> Generator[None, None, Optional[int]]:
         """Get the given agent's balance."""    
 
+        self.context.logger.info(
+            f"Checking erc20 balance for agent with address {agent} in token {self.params.erc20_token_address} for contract {ERC20.contract_id}..."
+        )
         response_msg = yield from self.get_contract_api_response(
             performative=ContractApiMessage.Performative.GET_STATE,  # type: ignore
             contract_address=self.params.erc20_token_address,

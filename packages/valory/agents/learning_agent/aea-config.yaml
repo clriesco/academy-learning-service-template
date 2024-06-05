@@ -32,8 +32,8 @@ protocols:
 skills:
 - valory/abstract_abci:0.1.0:bafybeihat4giyc4bz6zopvahcj4iw53356pbtwfn7p4d5yflwly2qhahum
 - valory/abstract_round_abci:0.1.0:bafybeih3enhagoql7kzpeyzzu2scpkif6y3ubakpralfnwxcvxexdyvy5i
-- valory/learning_abci:0.1.0:bafybeifgkghjqrsw4csqjln7cxxuyaricdrpxym66gozipemoy3jjpm66m
-- valory/learning_chained_abci:0.1.0:bafybeifqkdnfvrvwzdbquubj64rb4tufnfaxhytmivliwneu3gv54xo4ae
+- valory/learning_abci:0.1.0:bafybeidjwcxt6nxar34ymw56yaqpdpt4ark4pnaddkbslklfkzhqwvcfqi
+- valory/learning_chained_abci:0.1.0:bafybeibwh6ncw3b4fsxtrqrbfrzy4coygkbjzd3sjh36q65aiafftsik2a
 - valory/registration_abci:0.1.0:bafybeiek7zcsxbucjwzgqfftafhfrocvc7q4yxllh2q44jeemsjxg3rcfm
 - valory/reset_pause_abci:0.1.0:bafybeidw4mbx3os3hmv7ley7b3g3gja7ydpitr7mxbjpwzxin2mzyt5yam
 - valory/termination_abci:0.1.0:bafybeihq6qtbwt6i53ayqym63vhjexkcppy26gguzhhjqywfmiuqghvv44
@@ -90,7 +90,7 @@ config:
       poa_chain: ${bool:false}
       default_gas_price_strategy: ${str:eip1559}
     gnosis:
-      address: ${str:https://virtual.gnosis.rpc.tenderly.co/3788a42c-5a42-4490-9afe-76f0bdedf7d0}
+      address: ${str:https://virtual.gnosis.rpc.tenderly.co/b2ec924c-0f83-4d8c-b8f6-516460411eab}
       chain_id: ${int:1337}
       poa_chain: ${bool:false}
       default_gas_price_strategy: ${str:eip1559}
