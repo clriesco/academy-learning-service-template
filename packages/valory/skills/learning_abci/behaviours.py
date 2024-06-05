@@ -201,11 +201,12 @@ class DecisionMakingBehaviour(
             contract_callable="check_balance",
             account=agent,
         )
-        if response_msg.performative != ContractApiMessage.Performative.RAW_TRANSACTION:
+        self.context.logger.info(response_msg)
+        if response_msg.performative != ContractApiMessage.Performative.GET_STATE:
             self.context.logger.error(
                 f"Could not calculate the erc20 balance of the agent: {response_msg}"
             )
-            return None
+            return 
 
         token = response_msg.raw_transaction.body.get("token", None)
         wallet = response_msg.raw_transaction.body.get("wallet", None)
@@ -238,7 +239,6 @@ class DecisionMakingBehaviour(
             self.context.logger.error(f"{log_msg}: {ledger_api_response}")
             return None
 
-        self.context.logger.info(f"The agent with address {agent} has {balance} WEI.")
         return balance
 
 
