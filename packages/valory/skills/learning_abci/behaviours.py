@@ -195,7 +195,7 @@ class DecisionMakingBehaviour(
         """Get the given agent's balance."""    
 
         response_msg = yield from self.get_contract_api_response(
-            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,  # type: ignore
+            performative=ContractApiMessage.Performative.GET_STATE,  # type: ignore
             contract_address=self.params.erc20_token_address,
             contract_id=str(ERC20.contract_id),
             contract_callable="check_balance",
