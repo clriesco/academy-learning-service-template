@@ -27,6 +27,7 @@ from packages.valory.contracts.erc20.contract import ERC20
 
 from packages.valory.protocols.contract_api import ContractApiMessage
 from packages.valory.protocols.ledger_api import LedgerApiMessage
+from packages.valory.contracts.gnosis_safe.contract import GnosisSafeContract
 
 from packages.valory.skills.abstract_round_abci.base import AbstractRound
 from packages.valory.skills.abstract_round_abci.behaviours import (
@@ -38,6 +39,9 @@ from packages.valory.skills.learning_abci.payloads import (
     APICheckPayload,
     DecisionMakingPayload,
     TxPreparationPayload,
+)
+from packages.valory.skills.transaction_settlement_abci.payload_tools import (
+    hash_payload_to_hex,
 )
 from packages.valory.skills.learning_abci.rounds import (
     APICheckRound,
@@ -203,16 +207,17 @@ class DecisionMakingBehaviour(
             contract_id=str(ERC20.contract_id),
             contract_callable="check_balance",
             account=agent,
+            chain_id=GNOSIS_CHAIN_ID
         )
         self.context.logger.info(response_msg)
-        if response_msg.performative != ContractApiMessage.Performative.GET_STATE:
+        if response_msg.performative != ContractApiMessage.Performative.STATE:
             self.context.logger.error(
                 f"Could not calculate the erc20 balance of the agent: {response_msg}"
             )
             return 
 
-        token = response_msg.raw_transaction.body.get("token", None)
-        wallet = response_msg.raw_transaction.body.get("wallet", None)
+        token = response_msg.state.body.get("token", None)
+        wallet = response_msg.state.body.get("wallet", None)
         if token is None or wallet is None:
             self.context.logger.error(
                 f"Something went wrong while trying to get the erc20 balance of the agent: {response_msg}"
@@ -243,7 +248,8 @@ class DecisionMakingBehaviour(
             return None
 
         return balance
-
+    
+    
 
 class TxPreparationBehaviour(
     LearningBaseBehaviour
@@ -251,14 +257,16 @@ class TxPreparationBehaviour(
     """TxPreparationBehaviour"""
 
     matching_round: Type[AbstractRound] = TxPreparationRound
+    ETHER_VALUE = 10  # 10 WEI
 
     def async_act(self) -> Generator:
         """Do the act, supporting asynchronous execution."""
 
         with self.context.benchmark_tool.measure(self.behaviour_id).local():
+            tx_data = yield from self.get_tx()
             sender = self.context.agent_address
             payload = TxPreparationPayload(
-                sender=sender, tx_submitter=self.auto_behaviour_id(), tx_hash=None
+                sender=sender, tx_submitter=self.auto_behaviour_id(), tx_hash=tx_data
             )
 
         with self.context.benchmark_tool.measure(self.behaviour_id).consensus():
@@ -267,6 +275,88 @@ class TxPreparationBehaviour(
 
         self.set_done()
 
+    def get_tx(self) -> Generator[None, None, str]:
+        """
+        Prepares a safe tx and returns it.
+        """
+        deposit_tx_data = yield from self._get_deposit_tx()
+        if deposit_tx_data is None:
+            self.context.logger.error("Could not prepare the deposit tx.")
+            return DecisionMakingRound.ERROR_PAYLOAD
+    
+        safe_tx_hash = yield from self._get_safe_tx_hash(deposit_tx_data)
+        if safe_tx_hash is None:
+            self.context.logger.error("Could not prepare the safe tx hash.")
+            return DecisionMakingRound.ERROR_PAYLOAD
+        
+        payload_data = hash_payload_to_hex(
+            safe_tx_hash=safe_tx_hash,
+            ether_value=self.ETHER_VALUE,
+            safe_tx_gas=SAFE_GAS,
+            to_address=self.params.erc20_token_address,
+            data=deposit_tx_data
+        )
+
+        return payload_data
+    
+    def _get_deposit_tx(self) -> Generator[None, None, Optional[bytes]]:
+        """
+        Prepare the deposit tx.
+        """
+        self.context.logger.info("Preparing the deposit tx...")
+        response_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_STATE,  # type: ignore
+            contract_address=self.params.erc20_token_address,
+            contract_id=str(ERC20.contract_id),
+            contract_callable="build_deposit_tx",
+            chain_id=GNOSIS_CHAIN_ID,
+        )
+
+        if response_msg.performative != ContractApiMessage.Performative.STATE:
+            self.context.logger.error(
+                f"Could not prepare the deposit tx: {response_msg}"
+            )
+            return None
+
+        deposit_tx_data = response_msg.state.body.get("data", None)
+        if deposit_tx_data is None:
+            self.context.logger.error(
+                f"Something went wrong while trying to prepare the deposit tx: {response_msg}"
+            )
+            return None
+        self.context.logger.info(f"Deposit tx prepared: {deposit_tx_data}")
+
+        return deposit_tx_data
+    
+    def _get_safe_tx_hash(self, data: bytes) -> Generator[None, None, Optional[str]]:
+        """
+        Get the safe tx hash.
+        """
+        self.context.logger.info(f"Preparing the safe tx hash... with safe contract address {self.synchronized_data.safe_contract_address}")
+        response_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_STATE,  # type: ignore
+            contract_address=self.synchronized_data.safe_contract_address,  # the safe contract address
+            contract_id=str(GnosisSafeContract.contract_id),
+            contract_callable="get_raw_safe_transaction_hash",
+            to_address=self.params.erc20_token_address,
+            value=self.ETHER_VALUE, # TODO: ASK
+            data=data,
+            safe_tx_gas=SAFE_GAS,
+            chain_id=GNOSIS_CHAIN_ID
+        )
+
+        if response_msg.performative != ContractApiMessage.Performative.STATE:
+            self.context.logger.error(
+                f"Couldn't get safe hash. "
+                f"Expected response performative {ContractApiMessage.Performative.STATE.value}, "  # type: ignore
+                f"received {response_msg.performative.value}."
+            )
+            return None
+
+        # strip "0x" from the response hash
+        self.context.logger.info(f"Safe tx hash prepared: {response_msg.state.body['tx_hash']}")
+        tx_hash = cast(str, response_msg.state.body["tx_hash"])[2:]
+        return tx_hash
 
 class LearningRoundBehaviour(AbstractRoundBehaviour):
     """LearningRoundBehaviour"""

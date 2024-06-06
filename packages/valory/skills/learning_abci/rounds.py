@@ -108,6 +108,8 @@ class DecisionMakingRound(CollectSameUntilThresholdRound):
     payload_class = DecisionMakingPayload
     synchronized_data_class = SynchronizedData
 
+    ERROR_PAYLOAD = "{}"
+
     def end_block(self) -> Optional[Tuple[BaseSynchronizedData, Event]]:
         """Process the end of the block."""
 
