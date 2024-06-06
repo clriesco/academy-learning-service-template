@@ -163,7 +163,10 @@ class DecisionMakingBehaviour(
             decision = self.get_decision()
 
             erc20_balance = yield from self._get_ERC20_balance(self.synchronized_data.safe_contract_address)
-            self.context.logger.info(f"ERC20 Balance of  address {self.synchronized_data.safe_contract_address}: {erc20_balance}")
+            self.context.logger.info(f"ERC20 Balance of address {self.synchronized_data.safe_contract_address}: {erc20_balance}")
+
+            balance = yield from self._get_balance(self.synchronized_data.safe_contract_address)
+            self.context.logger.info(f"Balance of address {self.synchronized_data.safe_contract_address}: {balance}")
 
             sender = self.context.agent_address
             payload = DecisionMakingPayload(sender=sender, event=decision)
@@ -227,13 +230,13 @@ class DecisionMakingBehaviour(
         self.context.logger.info(f"The safe {self.synchronized_data.safe_contract_address} has {wallet} xDAI and {token}.")
         return token
     
-    def _get_balance(self, agent: str) -> Generator[None, None, Optional[int]]:
+    def _get_balance(self, addr: str) -> Generator[None, None, Optional[int]]:
         """Get the given safe's balance."""
-        self.context.logger.info(f"Checking balance for safe with address {self.synchronized_data.safe_contract_address}...")
+        self.context.logger.info(f"Checking balance for address {addr}...")
         ledger_api_response = yield from self.get_ledger_api_response(
             performative=LedgerApiMessage.Performative.GET_STATE,  # type: ignore
             ledger_callable="get_balance",
-            account=self.synchronized_data.safe_contract_address,
+            account=addr,
             chain_id=GNOSIS_CHAIN_ID
         )
 
@@ -243,7 +246,7 @@ class DecisionMakingBehaviour(
             balance = None
 
         if balance is None:
-            log_msg = f"Failed to get the balance for safe with address {self.synchronized_data.safe_contract_address}."
+            log_msg = f"Failed to get the balance for address {addr}."
             self.context.logger.error(f"{log_msg}: {ledger_api_response}")
             return None
 
