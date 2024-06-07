@@ -1,3 +1,22 @@
+.PHONY: new_env
+new_env: clean
+	if [ ! -z "$(which svn)" ];\
+	then\
+		echo "The development setup requires SVN, exit";\
+		exit 1;\
+	fi;\
+
+	if [ -z "$v" ];\
+	then\
+		pipenv --rm;\
+		pipenv --clear;\
+		pipenv --python 3.10;\
+		pipenv install --dev --skip-lock;\
+		pipenv run pip install -e .[all];\
+		echo "Enter virtual environment with all development dependencies now: 'pipenv shell'.";\
+	else\
+		echo "In a virtual environment! Exit first: 'exit'.";\
+	fi
 .PHONY: clean
 clean: clean-test clean-build clean-pyc clean-docs
 
@@ -77,35 +96,5 @@ common-checks-1:
 	tomte check-copyright --author author_name
 	tomte check-doc-links
 	tox -p -e check-hash -e check-packages -e check-doc-hashes
-
-.PHONY: all-linters
-all-linters:
-	gitleaks detect --report-format json --report-path leak_report
-	tox -e spell-check
-	tox -e check-doc-hashes
-	tox -e bandit
-	tox -e safety
-	tox -e check-packages
-	tox -e check-abciapp-specs
-	tox -e check-hash
-	tox -e black-check
-	tox -e isort-check
-	tox -e flake8
-	tox -e darglint
-	tox -e pylint
-	tox -e mypy
-
-.PHONY: fix-abci-app-specs
-fix-abci-app-specs:
-	export PYTHONPATH=${PYTHONPATH}:${PWD}
-	autonomy analyse fsm-specs --update --app-class LearningAbciApp --package packages/valory/skills/learning_abci/ || (echo "Failed to check learning_abci abci consistency" && exit 1)
-	autonomy analyse fsm-specs --update --app-class LearningChainedSkillAbciApp --package packages/valory/skills/learning_chained_abci/ || (echo "Failed to check learning_chained_abci abci consistency" && exit 1)
-
-
-.PHONY: tm
-tm:
-	rm -r ~/.tendermint
-	tendermint init
-	tendermint node --proxy_app=tcp://127.0.0.1:26658 --rpc.laddr=tcp://127.0.0.1:26657 --p2p.laddr=tcp://0.0.0.0:26656 --p2p.seeds= --consensus.create_empty_blocks=true
 
 v := $(shell pip -V | grep virtualenvs)

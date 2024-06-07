@@ -227,7 +227,7 @@ class DecisionMakingBehaviour(
             )
             return None
 
-        self.context.logger.info(f"The safe {self.synchronized_data.safe_contract_address} has {wallet} xDAI and {token}.")
+        self.context.logger.info(f"The safe {self.synchronized_data.safe_contract_address} has {wallet} wei xDAI and {token} wei WxDAI.")
         return token
     
     def _get_balance(self, addr: str) -> Generator[None, None, Optional[int]]:
@@ -264,7 +264,7 @@ class TxPreparationBehaviour(
         """Do the act, supporting asynchronous execution."""
 
         with self.context.benchmark_tool.measure(self.behaviour_id).local():
-            tx_data = yield from self.get_tx_hash()
+            tx_data = yield from self.get_tx()
             sender = self.context.agent_address
             payload = TxPreparationPayload(
                 sender=sender, tx_submitter=self.auto_behaviour_id(), tx_hash=tx_data

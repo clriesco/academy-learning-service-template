@@ -19,7 +19,7 @@ contracts:
 - valory/gnosis_safe_proxy_factory:0.1.0:bafybeib6podeifufgmawvicm3xyz3uaplbcrsptjzz4unpseh7qtcpar74
 - valory/multisend:0.1.0:bafybeig5byt5urg2d2bsecufxe5ql7f4mezg3mekfleeh32nmuusx66p4y
 - valory/service_registry:0.1.0:bafybeicbxmbzt757lbmyh6762lrkcrp3oeum6dk3z7pvosixasifsk6xlm
-- valory/erc20:0.1.0:bafybeihgulfsku7l5iwpbcw6qfm5xo5qale73f4lermhwr67nx5seahryq
+- valory/erc20:0.1.0:bafybeigvftdxjgnlsoemst5d57cor36idywk7bwcfj2bjqijxdxo3xpurq
 protocols:
 - open_aea/signing:1.0.0:bafybeihv62fim3wl2bayavfcg3u5e5cxu3b7brtu4cn5xoxd6lqwachasi
 - valory/abci:0.1.0:bafybeiaqmp7kocbfdboksayeqhkbrynvlfzsx4uy4x6nohywnmaig4an7u
@@ -32,8 +32,8 @@ protocols:
 skills:
 - valory/abstract_abci:0.1.0:bafybeihat4giyc4bz6zopvahcj4iw53356pbtwfn7p4d5yflwly2qhahum
 - valory/abstract_round_abci:0.1.0:bafybeih3enhagoql7kzpeyzzu2scpkif6y3ubakpralfnwxcvxexdyvy5i
-- valory/learning_abci:0.1.0:bafybeigktf7qwhrfo2vlph6ep654xxz4tppatylsctkgwxs4p2rn6itkpq
-- valory/learning_chained_abci:0.1.0:bafybeicjuh7p4kgf66qskajbunrqzioil27t7xwhigd4fj5kfb5a34xmka
+- valory/learning_abci:0.1.0:bafybeiagv4ja6sp7ry5rrtbm5e2w6hjbkkjaqelijln4lbl5p7vtvum6zu
+- valory/learning_chained_abci:0.1.0:bafybeibyvpwqhghzsuwpjea6ohroe4nym6h7erodzzh22oxsrqhfkolqfm
 - valory/registration_abci:0.1.0:bafybeiek7zcsxbucjwzgqfftafhfrocvc7q4yxllh2q44jeemsjxg3rcfm
 - valory/reset_pause_abci:0.1.0:bafybeidw4mbx3os3hmv7ley7b3g3gja7ydpitr7mxbjpwzxin2mzyt5yam
 - valory/termination_abci:0.1.0:bafybeihq6qtbwt6i53ayqym63vhjexkcppy26gguzhhjqywfmiuqghvv44
@@ -85,12 +85,12 @@ type: connection
 config:
   ledger_apis:
     ethereum:
-      address: ${str:http://localhost:8545}
-      chain_id: ${int:31337}
+      address: ${str:https://virtual.gnosis.rpc.tenderly.co/5ab15b33-aeb2-4c67-97f4-9687df209f17}
+      chain_id: ${int:1337}
       poa_chain: ${bool:false}
       default_gas_price_strategy: ${str:eip1559}
     gnosis:
-      address: ${str:https://virtual.gnosis.rpc.tenderly.co/b2ec924c-0f83-4d8c-b8f6-516460411eab}
+      address: ${str:https://virtual.gnosis.rpc.tenderly.co/5ab15b33-aeb2-4c67-97f4-9687df209f17}
       chain_id: ${int:1337}
       poa_chain: ${bool:false}
       default_gas_price_strategy: ${str:eip1559}
@@ -163,7 +163,7 @@ models:
       service_registry_address: ${str:null}
       setup:
         all_participants: ${list:["0x0E358b95Ccb281005c46F807589c2443D7727723"]}
-        safe_contract_address: ${str:0xc76b7b0Bd9D04Cd0b24806e9bC920e2B8105B86e}
+        safe_contract_address: ${str:0xE67cD8F8C7857c589128471427B85803b6c189F2}
         consensus_threshold: ${int:null}
       share_tm_config_on_startup: ${bool:false}
       sleep_time: 1

@@ -1,9 +1,9 @@
 {
     "dev": {
-        "skill/valory/learning_abci/0.1.0": "bafybeigktf7qwhrfo2vlph6ep654xxz4tppatylsctkgwxs4p2rn6itkpq",
-        "skill/valory/learning_chained_abci/0.1.0": "bafybeicjuh7p4kgf66qskajbunrqzioil27t7xwhigd4fj5kfb5a34xmka",
-        "agent/valory/learning_agent/0.1.0": "bafybeig6aeqet3msubylzviux2eld2ppu3hgxmu5uxx3asnyck6aoit2na",
-        "service/valory/learning_service/0.1.0": "bafybeicipw66e6yodbr4ihd5logbfljopet3loxhur5k3s2ctsjqm7r7ha"
+        "skill/valory/learning_abci/0.1.0": "bafybeiagv4ja6sp7ry5rrtbm5e2w6hjbkkjaqelijln4lbl5p7vtvum6zu",
+        "skill/valory/learning_chained_abci/0.1.0": "bafybeibyvpwqhghzsuwpjea6ohroe4nym6h7erodzzh22oxsrqhfkolqfm",
+        "agent/valory/learning_agent/0.1.0": "bafybeid7wy6s2h76pegcva6le4ozajux3prkpqct2dzpkkh4kyhmw6afhq",
+        "service/valory/learning_service/0.1.0": "bafybeiedhyhkjinhm563bqne5djuj3tun6twqdwioksagcq742mezdctle"
     },
     "third_party": {
         "protocol/open_aea/signing/1.0.0": "bafybeihv62fim3wl2bayavfcg3u5e5cxu3b7brtu4cn5xoxd6lqwachasi",
@@ -18,7 +18,7 @@
         "contract/valory/gnosis_safe_proxy_factory/0.1.0": "bafybeib6podeifufgmawvicm3xyz3uaplbcrsptjzz4unpseh7qtcpar74",
         "contract/valory/multisend/0.1.0": "bafybeig5byt5urg2d2bsecufxe5ql7f4mezg3mekfleeh32nmuusx66p4y",
         "contract/valory/gnosis_safe/0.1.0": "bafybeibq77mgzhyb23blf2eqmia3kc6io5karedfzhntvpcebeqdzrgyqa",
-        "contract/valory/erc20/0.1.0": "bafybeihgulfsku7l5iwpbcw6qfm5xo5qale73f4lermhwr67nx5seahryq",
+        "contract/valory/erc20/0.1.0": "bafybeigvftdxjgnlsoemst5d57cor36idywk7bwcfj2bjqijxdxo3xpurq",
         "connection/valory/abci/0.1.0": "bafybeiclexb6cnsog5yjz2qtvqyfnf7x5m7tpp56hblhk3pbocbvgjzhze",
         "connection/valory/http_client/0.23.0": "bafybeih5vzo22p2umhqo52nzluaanxx7kejvvpcpdsrdymckkyvmsim6gm",
         "connection/valory/ipfs/0.1.0": "bafybeihndk6hohj3yncgrye5pw7b7w2kztj3avby5u5mfk2fpjh7hqphii",
