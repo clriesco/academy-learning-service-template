@@ -20,14 +20,26 @@
 """This package contains round behaviours of LearningAbciApp."""
 
 from abc import ABC
-from aea.exceptions import AEAEnforceError
-from typing import Generator, Set, Type, cast, Optional, Any
+from typing import Generator, List, Set, Type, cast, Optional
+from hexbytes import HexBytes
 
-from packages.valory.contracts.erc20.contract import ERC20
 
 from packages.valory.protocols.contract_api import ContractApiMessage
-from packages.valory.protocols.ledger_api import LedgerApiMessage
-from packages.valory.contracts.gnosis_safe.contract import GnosisSafeContract
+
+from packages.valory.contracts.gnosis_safe.contract import (
+    GnosisSafeContract,
+    SafeOperation,
+)
+
+from packages.valory.contracts.multisend.contract import (
+    MultiSendContract,
+    MultiSendOperation,
+)
+from packages.valory.contracts.uniswap_v2_router_02.contract import (
+    UniswapV2Router02Contract,
+)
+from packages.valory.contracts.uniswap_v2_erc20.contract import UniswapV2ERC20Contract
+from packages.keyko.contracts.deposit_tracker.contract import DepositTracker
 
 from packages.valory.skills.abstract_round_abci.base import AbstractRound
 from packages.valory.skills.abstract_round_abci.behaviours import (
@@ -40,7 +52,6 @@ from packages.valory.skills.learning_abci.payloads import (
     DecisionMakingPayload,
     TxPreparationPayload,
 )
-from packages.valory.skills.transaction_settlement_abci.rounds import TX_HASH_LENGTH
 
 from packages.valory.skills.transaction_settlement_abci.payload_tools import (
     hash_payload_to_hex,
@@ -53,18 +64,11 @@ from packages.valory.skills.learning_abci.rounds import (
     TxPreparationRound,
     Event
 )
-import json
-
 
 WaitableConditionType = Generator[None, None, bool]
 
-HTTP_OK = 200
 GNOSIS_CHAIN_ID = "gnosis"
-TX_DATA = b"0x"
 SAFE_GAS = 0
-VALUE_KEY = "value"
-TO_ADDRESS_KEY = "to_address"
-
 
 class LearningBaseBehaviour(BaseBehaviour, ABC):  # pylint: disable=too-many-ancestors
     """Base behaviour for the learning_abci skill."""
@@ -94,59 +98,14 @@ class APICheckBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
         """Do the act, supporting asynchronous execution."""
 
         with self.context.benchmark_tool.measure(self.behaviour_id).local():
-            price_response = yield from self.get_data()
-            self.context.logger.info(
-                f"Received price autonolas/usd from Coingecko API: {price_response}"
-            )
             sender = self.context.agent_address
-            payload = APICheckPayload(sender=sender, price=float(price_response))
+            payload = APICheckPayload(sender=sender, price=1.0)
 
         with self.context.benchmark_tool.measure(self.behaviour_id).consensus():
             yield from self.send_a2a_transaction(payload)
             yield from self.wait_until_round_end()
 
         self.set_done()
-
-    def get_data(self) -> Generator[None, None, str]:
-        """
-        Get the data from Coingecko API.
-
-        :yield: HttpMessage object
-        :return: return the data retrieved from Coingecko API, in case something goes wrong we return "{}".
-        """
-        response = yield from self.get_http_response(
-            method="GET",
-            url=self.params.coingecko_price_template,
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "x-cg-demo-api-key": self.params.coingecko_api_key,
-            },
-        )
-        if response.status_code != 200:
-            self.context.logger.error(
-                f"Could not retrieve data from Coingecko APIs."
-                f"Received status code {response.status_code}."
-            )
-            return "NaN"
-
-        try:
-            response_body = json.loads(response.body)
-
-        except (ValueError, TypeError) as e:
-            self.context.logger.error(
-                f"Could not parse response from coingecko API, "
-                f"the following error was encountered {type(e).__name__}: {e}"
-            )
-            return "NaN"
-        except Exception as e:  # pylint: disable=broad-except
-            self.context.logger.error(
-                f"An unexpected error was encountered while parsing the coingecko API response "
-                f"{type(e).__name__}: {e}"
-            )
-            return "NaN"
-        
-        return response_body["autonolas"]["usd"]
 
 
 class DecisionMakingBehaviour(
@@ -160,16 +119,9 @@ class DecisionMakingBehaviour(
         """Do the act, supporting asynchronous execution."""
 
         with self.context.benchmark_tool.measure(self.behaviour_id).local():
-            decision = self.get_decision()
-
-            erc20_balance = yield from self._get_ERC20_balance(self.synchronized_data.safe_contract_address)
-            self.context.logger.info(f"ERC20 Balance of address {self.synchronized_data.safe_contract_address}: {erc20_balance}")
-
-            balance = yield from self._get_balance(self.synchronized_data.safe_contract_address)
-            self.context.logger.info(f"Balance of address {self.synchronized_data.safe_contract_address}: {balance}")
-
             sender = self.context.agent_address
-            payload = DecisionMakingPayload(sender=sender, event=decision)
+            evt = Event.TRANSACT.value
+            payload = DecisionMakingPayload(sender=sender, event=evt)
 
         with self.context.benchmark_tool.measure(self.behaviour_id).consensus():
             yield from self.send_a2a_transaction(payload)
@@ -177,97 +129,73 @@ class DecisionMakingBehaviour(
 
         self.set_done()
     
-    def get_decision(self) -> str:
-        """ 
-        Check if the price is above or below 3
-        
-        If the price is above the threshold, we return "TRANSACT".
-        If the price is below the threshold, we return "DONE".
-
-        :return: the decision payload.
-        """
-        price = self.synchronized_data.price
-        self.context.logger.info('Checking if price is within threshold...')
-        if price > 3 or price < 2:
-            self.context.logger.info(
-                f"Price is outside the threshold. Price: {price} WEI."
-            )
-            return Event.TRANSACT.value
-        self.context.logger.info(
-            f"Price is within the threshold. Price: {price} WEI."
-        )
-        return Event.TRANSACT.value
-    
-    def _get_ERC20_balance(self, addr: str) -> Generator[None, None, Optional[int]]:
-        """Get the given safe's balance."""    
-
-        self.context.logger.info(
-            f"Checking erc20 balance for address {addr} in token {self.params.erc20_token_address} for contract {ERC20.contract_id}..."
-        )
-        response_msg = yield from self.get_contract_api_response(
-            performative=ContractApiMessage.Performative.GET_STATE,  # type: ignore
-            contract_address=self.params.erc20_token_address,
-            contract_id=str(ERC20.contract_id),
-            contract_callable="check_balance",
-            account=addr,
-            chain_id=GNOSIS_CHAIN_ID
-        )
-        self.context.logger.info(response_msg)
-        if response_msg.performative != ContractApiMessage.Performative.STATE:
-            self.context.logger.error(
-                f"Could not calculate the erc20 balance of the address: {response_msg}"
-            )
-            return 
-
-        token = response_msg.state.body.get("token", None)
-        wallet = response_msg.state.body.get("wallet", None)
-        if token is None or wallet is None:
-            self.context.logger.error(
-                f"Something went wrong while trying to get the erc20 balance of the address: {response_msg}"
-            )
-            return None
-
-        self.context.logger.info(f"The safe {self.synchronized_data.safe_contract_address} has {wallet} wei xDAI and {token} wei WxDAI.")
-        return token
-    
-    def _get_balance(self, addr: str) -> Generator[None, None, Optional[int]]:
-        """Get the given safe's balance."""
-        self.context.logger.info(f"Checking balance for address {addr}...")
-        ledger_api_response = yield from self.get_ledger_api_response(
-            performative=LedgerApiMessage.Performative.GET_STATE,  # type: ignore
-            ledger_callable="get_balance",
-            account=addr,
-            chain_id=GNOSIS_CHAIN_ID
-        )
-
-        try:
-            balance = int(ledger_api_response.state.body["get_balance_result"])
-        except (AEAEnforceError, KeyError, ValueError, TypeError):
-            balance = None
-
-        if balance is None:
-            log_msg = f"Failed to get the balance for address {addr}."
-            self.context.logger.error(f"{log_msg}: {ledger_api_response}")
-            return None
-
-        return balance
 
 class TxPreparationBehaviour(
     LearningBaseBehaviour
 ):  # pylint: disable=too-many-ancestors
-    """TxPreparationBehaviour"""
+    """
+    Behaviour to prepare and submit a multisend transaction for swapping WxDAI to WBTC and recording it in DepositTracker.
+
+    Attributes:
+        matching_round (Type[AbstractRound]): The matching round for this behaviour.
+    """
 
     matching_round: Type[AbstractRound] = TxPreparationRound
-    ETHER_VALUE = 10  # 10 WEI
 
     def async_act(self) -> Generator:
-        """Do the act, supporting asynchronous execution."""
+        """
+        Execute the action.
 
+        - Step 1: Retrieve the WxDAI balance from the safe.
+        - Step 2: Prepare a deposit transaction if WxDAI balance is less than required.
+        - Step 3: Prepare the swap transaction from WxDAI to WBTC.
+        - Step 4: Prepare the transaction to log the swap in DepositTracker.
+        - Step 5: Prepare the multisend transaction.
+        - Step 6: Get the Safe transaction hash for the multisend transaction.
+        - Step 7: Send the transaction payload.
+        """
+        
         with self.context.benchmark_tool.measure(self.behaviour_id).local():
-            tx_data = yield from self.get_tx()
-            sender = self.context.agent_address
+            # Step 1: Get the balance of WxDAI
+            balance = yield from self._get_ERC20_balance(self.synchronized_data.safe_contract_address)
+            self.context.logger.info(f"WxDAI Balance: {balance}")
+
+            # Step 2: Prepare the deposit transaction if needed
+            if balance is None or balance < self.params.trade_amount:
+                deposit_amount = self.params.trade_amount - balance if balance else self.params.trade_amount
+                deposit_txn = yield from self._prepare_deposit_tx(deposit_amount)
+                self.context.logger.info(f"Deposit tx prepared: {deposit_txn}")
+
+            # Step 3: Prepare the swap transaction
+            swap_txn = yield from self._prepare_swap_tx()
+            self.context.logger.info(f"Swap tx prepared: {swap_txn}")
+
+            # Step 4: Prepare the DepositTracker transaction
+            deposit_tracker_tx = yield from self._prepare_deposit_tracker_tx(swap_txn["amount_out"])
+            self.context.logger.info(f"DepositTracker tx prepared: {deposit_tracker_tx}")
+
+            # Step 5: Build the multisend transaction
+            multi_send_txs = [deposit_txn, swap_txn, deposit_tracker_tx]
+
+            multisend_data = yield from self._prepare_multisend_tx(multi_send_txs)
+            self.context.logger.info(f"Multisend data prepared: {multisend_data}")
+
+            # Step 6: Get the Safe transaction hash for the multisend transaction
+            safe_tx_hash = yield from self._get_safe_tx_hash(multisend_data)
+            self.context.logger.info(f"Safe tx hash: {safe_tx_hash}")
+
+            # Step 7: Prepare the payload
+            payload_string = hash_payload_to_hex(
+                safe_tx_hash=safe_tx_hash,
+                ether_value=0,
+                safe_tx_gas=SAFE_GAS,
+                to_address=self.synchronized_data.multisend_contract_address,
+                data=bytes.fromhex(multisend_data),
+                operation=SafeOperation.DELEGATE_CALL.value,
+            )
+
             payload = TxPreparationPayload(
-                sender=sender, tx_submitter=self.auto_behaviour_id(), tx_hash=tx_data
+                sender=self.context.agent_address, tx_submitter=self.auto_behaviour_id(), tx_hash=payload_string
             )
 
         with self.context.benchmark_tool.measure(self.behaviour_id).consensus():
@@ -276,181 +204,173 @@ class TxPreparationBehaviour(
 
         self.set_done()
 
-    def get_tx_hash(self) -> Generator[None, None, Optional[str]]:
-        """Get the transaction hash"""
-        # Send 1 wei to the agent
-        call_data = {VALUE_KEY: self.ETHER_VALUE, TO_ADDRESS_KEY: self.params.transfer_target_address}
-        self.context.logger.info(f"Preparing the transaction hash for the transfer tx: {call_data}")
-        safe_tx_hash = yield from self._build_safe_tx_hash(**call_data)
-        if safe_tx_hash is None:
-            self.context.logger.error("Could not build the safe transaction's hash.")
-            return None
+    def _get_ERC20_balance(self, addr: str) -> Generator[None, None, Optional[int]]:
+        """
+        Retrieve the balance of WxDAI for a given address.
 
-        tx_hash = hash_payload_to_hex(
-            safe_tx_hash,
-            call_data[VALUE_KEY],
-            SAFE_GAS,
-            call_data[TO_ADDRESS_KEY],
-            TX_DATA,
-        )
-
-        self.context.logger.info(f"Transaction hash is {tx_hash}")
-
-        return tx_hash
-
-    def _build_safe_tx_hash(
-        self, **kwargs: Any
-    ) -> Generator[None, None, Optional[str]]:
-        """Prepares and returns the safe tx hash for a multisend tx."""
-
-        self.context.logger.info(
-            f"Preparing Transfer transaction for Safe [{self.synchronized_data.safe_contract_address}]: {kwargs}"
-        )
-
+        :param addr: The address of the wallet.
+        :return: The balance of WxDAI.
+        """
         response_msg = yield from self.get_contract_api_response(
             performative=ContractApiMessage.Performative.GET_STATE,  # type: ignore
-            contract_address=self.synchronized_data.safe_contract_address,
-            contract_id=str(GnosisSafeContract.contract_id),
-            contract_callable="get_raw_safe_transaction_hash",
-            data=TX_DATA,
-            safe_tx_gas=SAFE_GAS,
-            chain_id=GNOSIS_CHAIN_ID,
-            **kwargs,
-        )
-
-        if response_msg.performative != ContractApiMessage.Performative.STATE:
-            self.context.logger.error(
-                "Couldn't get safe tx hash. Expected response performative "
-                f"{ContractApiMessage.Performative.STATE.value!r}, "  # type: ignore
-                f"received {response_msg.performative.value!r}: {response_msg}."
-            )
-            return None
-
-        tx_hash = response_msg.state.body.get("tx_hash", None)
-        if tx_hash is None or len(tx_hash) != TX_HASH_LENGTH:
-            self.context.logger.error(
-                "Something went wrong while trying to get the buy transaction's hash. "
-                f"Invalid hash {tx_hash!r} was returned."
-            )
-            return None
-
-        # strip "0x" from the response hash
-        return tx_hash[2:]
-
-    def get_tx(self) -> Generator[None, None, str]:
-        """
-        Prepares a safe tx and returns it.
-        """
-        deposit_tx_data = yield from self._get_deposit_tx()
-        if deposit_tx_data is None:
-            self.context.logger.error("Could not prepare the deposit tx.")
-            return DecisionMakingRound.ERROR_PAYLOAD
-    
-        safe_tx_hash = yield from self._get_safe_tx_hash(deposit_tx_data)
-        if safe_tx_hash is None:
-            self.context.logger.error("Could not prepare the safe tx hash.")
-            return DecisionMakingRound.ERROR_PAYLOAD
-        
-        payload_data = hash_payload_to_hex(
-            safe_tx_hash=safe_tx_hash,
-            ether_value=self.ETHER_VALUE,
-            safe_tx_gas=SAFE_GAS,
-            to_address=self.params.erc20_token_address,
-            data=deposit_tx_data
-        )
-
-        return payload_data
-    
-    def _get_transfer_tx(self) -> Generator[None, None, str]:
-        """
-        Prepare the transfer tx.
-        """
-        self.context.logger.info("Preparing the transfer tx...")
-        response_msg = yield from self.get_contract_api_response(
-            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,  # type: ignore
-            contract_address=self.params.erc20_token_address,
-            contract_id=str(ERC20.contract_id),
-            contract_callable="build_transfer_tx",
-            chain_id=GNOSIS_CHAIN_ID,
-            to_address=self.params.transfer_target_address,
-            amount=self.ETHER_VALUE
-        )
-
-        if response_msg.performative != ContractApiMessage.Performative.RAW_TRANSACTION:
-            self.context.logger.error(
-                f"Could not prepare the transfer tx: {response_msg}"
-            )
-            return None
-
-        transfer_tx_data = response_msg.raw_transaction.body.get("data", None)
-        if transfer_tx_data is None:
-            self.context.logger.error(
-                f"Something went wrong while trying to prepare the transfer tx: {response_msg}"
-            )
-            return None
-        self.context.logger.info(f"Transfer tx prepared: {transfer_tx_data}")
-
-        return transfer_tx_data
-    
-    
-    def _get_deposit_tx(self) -> Generator[None, None, Optional[bytes]]:
-        """
-        Prepare the deposit tx.
-        """
-        self.context.logger.info("Preparing the deposit tx...")
-        response_msg = yield from self.get_contract_api_response(
-            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,  # type: ignore
-            contract_address=self.params.erc20_token_address,
-            contract_id=str(ERC20.contract_id),
-            contract_callable="build_deposit_tx",
-            chain_id=GNOSIS_CHAIN_ID,
-        )
-
-        if response_msg.performative != ContractApiMessage.Performative.RAW_TRANSACTION:
-            self.context.logger.error(
-                f"Could not prepare the deposit tx: {response_msg}"
-            )
-            return None
-
-        deposit_tx_data = response_msg.raw_transaction.body.get("data", None)
-        if deposit_tx_data is None:
-            self.context.logger.error(
-                f"Something went wrong while trying to prepare the deposit tx: {response_msg}"
-            )
-            return None
-        self.context.logger.info(f"Deposit tx prepared: {deposit_tx_data}")
-
-        return deposit_tx_data
-    
-    def _get_safe_tx_hash(self, data: bytes) -> Generator[None, None, Optional[str]]:
-        """
-        Get the safe tx hash.
-        """
-        self.context.logger.info(f"Preparing the safe tx hash... with safe contract address {self.synchronized_data.safe_contract_address}")
-        response_msg = yield from self.get_contract_api_response(
-            performative=ContractApiMessage.Performative.GET_STATE,  # type: ignore
-            contract_address=self.synchronized_data.safe_contract_address,  # the safe contract address
-            contract_id=str(GnosisSafeContract.contract_id),
-            contract_callable="get_raw_safe_transaction_hash",
-            to_address=self.params.erc20_token_address,
-            value=self.ETHER_VALUE, # TODO: ASK
-            data=data,
-            safe_tx_gas=SAFE_GAS,
+            contract_address=self.params.wxdai_contract_address,
+            contract_id=str(UniswapV2ERC20Contract.contract_id),
+            contract_callable="check_balance",
+            account=addr,
             chain_id=GNOSIS_CHAIN_ID
         )
 
         if response_msg.performative != ContractApiMessage.Performative.STATE:
-            self.context.logger.error(
-                f"Couldn't get safe hash. "
-                f"Expected response performative {ContractApiMessage.Performative.STATE.value}, "  # type: ignore
-                f"received {response_msg.performative.value}."
-            )
+            self.context.logger.error(f"Could not get the balance: {response_msg}")
             return None
 
-        # strip "0x" from the response hash
-        self.context.logger.info(f"Safe tx hash prepared: {response_msg.state.body['tx_hash']}")
-        tx_hash = cast(str, response_msg.state.body["tx_hash"])[2:]
-        return tx_hash
+        return response_msg.state.body.get("balance", None)
+    
+    def _get_amounts_out(self, amount_in: int) -> Generator[None, None, int]:
+        """
+        Get the estimated output amount from Uniswap.
+
+        :param amount_in: The amount of input tokens.
+        :return: The estimated amount of output tokens.
+        """
+        path = [self.params.wxdai_contract_address, self.params.wbtc_contract_address]
+        contract_api_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.CALL,
+            contract_address=self.params.uniswap_router_address,
+            contract_id=str(UniswapV2Router02Contract.contract_id),
+            contract_callable="getAmountsOut",
+            amount_in=amount_in,
+            path=path,
+        )
+        if contract_api_msg.performative != ContractApiMessage.Performative.STATE:
+            self.context.logger.error(f"Could not get amounts out: {contract_api_msg}")
+            return 0  
+        return contract_api_msg.state.body["amounts"][-1]
+    
+    def _prepare_deposit_tx(self, deposit_amount: int) -> Generator[None, None, dict]:
+        """
+        Prepare the deposit transaction to convert xDAI to WxDAI.
+
+        :param deposit_amount: The amount of xDAI to deposit.
+        :return: The prepared deposit transaction.
+        """
+
+        # Build the transaction data for the deposit operation on the ERC20 contract
+        contract_api_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,
+            contract_address=self.params.wxdai_contract_address,
+            contract_id=str(UniswapV2ERC20Contract.contract_id),
+            contract_callable="build_deposit_tx",
+            chain_id=GNOSIS_CHAIN_ID,
+        )
+
+        return {
+            "operation": MultiSendOperation.CALL,
+            "to": self.params.wxdai_contract_address,
+            "value": deposit_amount,  # Send the deposit amount
+            "data": HexBytes(contract_api_msg.raw_transaction.body["data"].hex()),
+        }
+    
+    def _prepare_swap_tx(self) -> Generator[None, None, dict]:
+        """
+        Prepare the swap transaction on Uniswap.
+
+        :return: The prepared swap transaction.
+        """
+        path = [self.params.wxdai_contract_address, self.params.wbtc_contract_address]
+        deadline = int(self.context.now.timestamp() + 600)  # 10 minutes from now
+
+        # Retrieve the estimated output amount
+        estimated_out = yield from self._get_amounts_out(self.params.trade_amount, path)
+
+        # Apply the slippage tolerance
+        amount_out_min = int(estimated_out * (1 - self.params.slippage_tolerance))
+
+        # Prepare the swap transaction
+        contract_api_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,
+            contract_address=self.params.uniswap_router_address,
+            contract_id=str(UniswapV2Router02Contract.contract_id),
+            contract_callable="get_method_data",
+            method_name="swapExactTokensForTokens",
+            amount_in=self.params.trade_amount,
+            amount_out_min=amount_out_min,
+            path=path,
+            to=self.synchronized_data.safe_contract_address,
+            deadline=deadline,
+        )
+        swap_data = cast(bytes, contract_api_msg.raw_transaction.body["data"])
+
+        return {
+            "operation": MultiSendOperation.CALL,
+            "to": self.params.uniswap_router_address,
+            "value": 0,
+            "data": HexBytes(swap_data.hex()),
+        }
+    
+    def _prepare_deposit_tracker_tx(self, amount_swapped: int) -> Generator[None, None, dict]:
+        """
+        Prepare the transaction to log the swap in the DepositTracker.
+
+        :param amount_swapped: The amount of tokens swapped.
+        :return: The prepared DepositTracker transaction.
+        """
+        contract_api_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,
+            contract_address=self.params.deposit_tracker_address,
+            contract_id=str(DepositTracker.contract_id),
+            contract_callable="addLog",
+            amount=amount_swapped,
+            chain_id=GNOSIS_CHAIN_ID,
+        )
+
+        return {
+            "operation": MultiSendOperation.CALL,
+            "to": self.params.deposit_tracker_address,
+            "value": 0,
+            "data": HexBytes(contract_api_msg.raw_transaction.body["data"].hex()),
+        }
+    
+    def _prepare_multisend_tx(self, txs: List[dict]) -> Generator[None, None, str]:
+        """
+        Prepare the multisend transaction.
+
+        :param txs: The list of transactions to include in the multisend.
+        :return: The prepared multisend data.
+        """
+        contract_api_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,
+            contract_address=self.synchronized_data.safe_contract_address,
+            contract_id=str(MultiSendContract.contract_id),
+            contract_callable="get_tx_data",
+            multi_send_txs=txs,
+        )
+
+        multisend_data = contract_api_msg.raw_transaction.body["data"][2:]
+        return multisend_data
+    
+    def _get_safe_tx_hash(self, multisend_data: str) -> Generator[None, None, str]:
+        """
+        Get the transaction hash from Gnosis Safe contract.
+
+        :param multisend_data: The multisend transaction data.
+        :return: The hash of the Safe transaction.
+        """
+        contract_api_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,
+            contract_address=self.synchronized_data.safe_contract_address,
+            contract_id=str(GnosisSafeContract.contract_id),
+            contract_callable="get_raw_safe_transaction_hash",
+            to_address=self.synchronized_data.multisend_contract_address,
+            value=0,
+            data=bytes.fromhex(multisend_data),
+            operation=SafeOperation.DELEGATE_CALL.value,
+            safe_tx_gas=SAFE_GAS,
+            safe_nonce=self.synchronized_data.safe_nonce,
+        )
+
+        safe_tx_hash = contract_api_msg.raw_transaction.body["tx_hash"][2:]
+        return safe_tx_hash
 
 class LearningRoundBehaviour(AbstractRoundBehaviour):
     """LearningRoundBehaviour"""

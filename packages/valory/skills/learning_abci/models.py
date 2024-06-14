@@ -55,4 +55,8 @@ class Params(BaseParams):
             "transfer_target_address", kwargs, str
         )
         self.erc20_token_address = self._ensure("erc20_token_address", kwargs, str)
+        self.usbls_statement_page = self._ensure(
+            "usbls_statement_page", kwargs, str
+        )
+
         super().__init__(*args, **kwargs)

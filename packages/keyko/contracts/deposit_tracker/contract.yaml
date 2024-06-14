@@ -1,0 +1,29 @@
+name: deposit_tracker
+author: keyko
+version: 0.1.0
+type: contract
+description: Deposit Tracker contract
+license: Apache-2.0
+aea_version: '>=1.0.0, <2.0.0'
+fingerprint:
+  __init__.py: bafybeich22jwxanflkuelwgkb4fhe5nxmpesgza2dudx6adtfszem77bb4
+  build/DepositTracker.json: bafybeig3ns5zzuwlpadaewzuzreury2yiapeuk2cjd3kmwn4gnhdzum3au
+  contract.py: bafybeiahs3khqw3sjiutwo7ri2ohqdphnwvka6zanxkvjtigqvtojxpukq
+fingerprint_ignore_patterns: []
+contracts: []
+class_name: DepositTracker
+contract_interface_paths:
+  ethereum: build/DepositTracker.json
+dependencies:
+  ecdsa:
+    version: '>=0.15'
+  eth_typing: {}
+  hexbytes: {}
+  open-aea-ledger-ethereum:
+    version: ==1.50.0
+  packaging: {}
+  py-eth-sig-utils: {}
+  requests:
+    version: ==2.28.1
+  web3:
+    version: <7,>=6.0.0
