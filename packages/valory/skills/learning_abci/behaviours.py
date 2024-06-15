@@ -23,7 +23,9 @@ from abc import ABC
 from datetime import datetime
 from typing import Generator, List, Set, Type, cast, Optional
 from hexbytes import HexBytes
-
+import re
+import json
+from bs4 import BeautifulSoup
 
 from packages.valory.protocols.contract_api import ContractApiMessage
 
@@ -43,6 +45,7 @@ from packages.valory.contracts.erc20.contract import ERC20
 from packages.keyko.contracts.deposit_tracker.contract import DepositTracker
 
 from packages.valory.skills.abstract_round_abci.base import AbstractRound
+from packages.valory.skills.abstract_round_abci.io_.store import SupportedFiletype
 from packages.valory.skills.abstract_round_abci.behaviours import (
     AbstractRoundBehaviour,
     BaseBehaviour,
@@ -99,14 +102,140 @@ class APICheckBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
         """Do the act, supporting asynchronous execution."""
 
         with self.context.benchmark_tool.measure(self.behaviour_id).local():
+            new_round_count = self.synchronized_data.round_number + 1
+
+            self.context.logger.info(
+                f"APICheckBehaviour: Starting the API check for round {new_round_count}."
+            )
+
+            bls_response = yield from self.get_bls_data()
+            bls_html_text = BeautifulSoup(bls_response, 'html.parser').select_one('#bodytext .normalnews').text
+
+            index_value = self.get_index_value(bls_html_text)
+            consensus_value = yield from self.get_fxstreet_data()
+
+            self.context.logger.info(
+                f"APICheckBehaviour: Index value: {index_value}, Consensus value: {consensus_value}"
+            )
+
+            ipfs_hash = yield from self.send_to_ipfs(
+                "bls_data.json",
+                {
+                    "bls_text": bls_html_text,    
+                },
+                filetype=SupportedFiletype.JSON,
+                timeout=10.0
+            )
+
+            different_hash = self.synchronized_data.hash_value != ipfs_hash
+
+            self.context.logger.info(
+                f"APICheckBehaviour: IPFS hash: {ipfs_hash}, Different hash: {different_hash}"
+            )
+
             sender = self.context.agent_address
-            payload = APICheckPayload(sender=sender, price=1.0)
+            payload = APICheckPayload(
+                sender=sender, 
+                bls_index_value=index_value,
+                consensus_value=consensus_value,
+                hash_value=ipfs_hash,
+                different_hash=different_hash,
+                round_number=new_round_count
+            )
 
         with self.context.benchmark_tool.measure(self.behaviour_id).consensus():
             yield from self.send_a2a_transaction(payload)
             yield from self.wait_until_round_end()
 
         self.set_done()
+    
+    def get_fxstreet_data(self) -> Generator[None, None, str]:
+        """
+        Get the data from FXStreet.com which contains the consensus value needed
+        """
+        response = yield from self.get_http_response(
+            method="GET",
+            # url=self.params.fxstreet_api_url + "/{fxstreet_from}/{fxstreet_to}",
+            url=self.params.fxstreet_api_url + "/2024-06-12T00:00:00Z/2024-06-13T23:59:59Z",
+            parameters={
+                "volatilities": "HIGH",
+                "countries": "US",
+                "categories": "33303F5E-1E3C-4016-AB2D-AC87E98F57CA"
+            },
+            headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/",
+                "Referer": "https://www.fxstreet.com/",
+            }
+        )
+        if response.status_code != 200:
+            self.context.logger.error(
+                f"APICheckBehaviour: Could not retrieve data from BLS."
+                f"APICheckBehaviour: Received status code {response.status_code}."
+            )
+            self.context.logger.error(f"APICheckBehaviour: Response body: {response.body}")
+            self.context.logger.error(f"APICheckBehaviour: Response headers: {response.headers}")
+            return ""
+        
+        data = json.loads(response.body)
+        
+        event_id = "6f846eaa-9a12-43ab-930d-f059069c6646"
+        consensus_value = None
+
+        for item in data:
+            if item["eventId"] == event_id:
+                consensus_value = item["consensus"]
+                break
+
+        if consensus_value is not None:
+            return consensus_value
+        else:
+            return None
+        
+    def get_bls_data(self) -> Generator[None, None, str]:
+        """
+        Get the data from BLS.gov which contains the index value needed
+        """
+        response = yield from self.get_http_response(
+            method="GET",
+            url=self.params.usbls_statement_page,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+                "Accept-Encoding": "gzip, deflate, br",
+            },
+        )
+        if response.status_code != 200:
+            self.context.logger.error(
+                f"APICheckBehaviour: Could not retrieve data from BLS."
+                f"APICheckBehaviour: Received status code {response.status_code}."
+            )
+            self.context.logger.error(f"APICheckBehaviour: Response body: {response.body}")
+            self.context.logger.error(f"APICheckBehaviour: Response headers: {response.headers}")
+            return ""
+        
+        html_content = response.body.decode('utf-8')
+        self.context.logger.info(f"Received html content from BLS: {html_content}")
+        return html_content
+
+    def get_index_value(self, html_response: str) -> Optional[float]:
+        """
+        Get the index value from the html text
+        """
+        pattern = r'the all items index (increased|raised|decreased|went down).*?(\d+(\.\d+)?) percent'
+        match = re.search(pattern, html_response, re.IGNORECASE)
+
+        if match:
+            # Capture the trend direction and the numeric value
+            trend = match.group(1).lower()
+            value = float(match.group(2))
+            
+            # Determine if the trend is negative
+            if trend in ['decreased', 'down']:
+                value = -value
+            
+            return value
+
+        return None
 
 
 class DecisionMakingBehaviour(
@@ -120,15 +249,55 @@ class DecisionMakingBehaviour(
         """Do the act, supporting asynchronous execution."""
 
         with self.context.benchmark_tool.measure(self.behaviour_id).local():
+            decision = self.get_decision(
+                self.synchronized_data.consensus_value,
+                self.synchronized_data.bls_index_value,
+                self.synchronized_data.different_hash
+            )
+            
+            self.context.logger.info(
+                f"DecisionMakingBehaviour: Round decision: {decision}"
+            )
+            
+            if (decision != Event.TRANSACT.value and self.synchronized_data.round_number == 4):
+                self.context.logger.info(
+                    f"DecisionMakingBehaviour: Forcing transaction on 4th period. New decision: {Event.TRANSACT.value}"
+                )
+                decision = Event.TRANSACT.value
+            
             sender = self.context.agent_address
-            evt = Event.TRANSACT.value
-            payload = DecisionMakingPayload(sender=sender, event=evt)
+            payload = DecisionMakingPayload(sender=sender, event=decision)
 
         with self.context.benchmark_tool.measure(self.behaviour_id).consensus():
             yield from self.send_a2a_transaction(payload)
             yield from self.wait_until_round_end()
 
         self.set_done()
+    
+    def get_decision(self, consensus_value: float, index_value: float, different_hash: bool) -> str:
+        """ 
+        Check if the consensus value is higher than the index value and if there's a new release from BLS.
+        
+        :return: the decision payload.
+        """
+        self.context.logger.info('Checking if price is within threshold...')
+        if (consensus_value is None or index_value is None or different_hash is None):
+            self.context.logger.error(
+                f"DecisionMakingBehaviour: Could not get the consensus value, index value or different hash value."
+            )
+            return Event.ERROR.value
+        
+        if (consensus_value > index_value and different_hash is True):
+            self.context.logger.info(
+                f"DecisionMakingBehaviour: Index value is lower than consensus value and there's a new release from BLS. Consensus value: {consensus_value}, Index value: {index_value}. New statement release: {different_hash}."
+            )
+            return Event.TRANSACT.value
+        
+        self.context.logger.info(
+            f"DecisionMakingBehaviour: Index value is higher than consensus value or there's not a new release from BLS from the last decision making. Consensus value: {consensus_value}, Index value: {index_value}."
+        )
+        return Event.DONE.value
+
     
 
 class TxPreparationBehaviour(

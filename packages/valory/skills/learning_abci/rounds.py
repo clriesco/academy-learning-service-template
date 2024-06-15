@@ -64,9 +64,29 @@ class SynchronizedData(BaseSynchronizedData):
         return CollectionRound.deserialize_collection(serialized)
 
     @property
-    def price(self) -> Optional[float]:
-        """Get the token price."""
-        return self.db.get("price", None)
+    def bls_index_value(self) -> Optional[float]:
+        """Get the bls index value."""
+        return self.db.get("bls_index_value", None)
+
+    @property
+    def consensus_value(self) -> Optional[float]:
+        """Get the consensus value."""
+        return self.db.get("consensus_value", None)
+    
+    @property
+    def hash_value(self) -> Optional[str]:
+        """Get the hash value."""
+        return self.db.get("hash_value", None)
+    
+    @property
+    def different_hash(self) -> Optional[bool]:
+        """Check if hash changed."""
+        return self.db.get("different_hash", None)
+
+    @property
+    def round_number(self) -> int:
+        """Get the round count value."""
+        return self.db.get("round_number", 0)
 
     @property
     def participant_to_price_round(self) -> DeserializedCollection:
@@ -97,7 +117,13 @@ class APICheckRound(CollectSameUntilThresholdRound):
     done_event = Event.DONE
     no_majority_event = Event.NO_MAJORITY
     collection_key = get_name(SynchronizedData.participant_to_price_round)
-    selection_key = get_name(SynchronizedData.price)
+    selection_key = (
+        get_name(SynchronizedData.bls_index_value),
+        get_name(SynchronizedData.consensus_value),
+        get_name(SynchronizedData.hash_value),
+        get_name(SynchronizedData.different_hash),
+        get_name(SynchronizedData.round_number),
+    )
 
     # Event.ROUND_TIMEOUT  # this needs to be referenced for static checkers
 
@@ -184,7 +210,9 @@ class LearningAbciApp(AbciApp[Event]):
         FinishedTxPreparationRound,
     }
     event_to_timeout: EventToTimeout = {}
-    cross_period_persisted_keys: FrozenSet[str] = frozenset()
+    cross_period_persisted_keys: FrozenSet[str] = frozenset(
+        [get_name(SynchronizedData.hash_value), get_name(SynchronizedData.round_number)]
+    )
     db_pre_conditions: Dict[AppState, Set[str]] = {
         APICheckRound: set(),
     }

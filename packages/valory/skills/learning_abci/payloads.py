@@ -29,7 +29,11 @@ from packages.valory.skills.abstract_round_abci.base import BaseTxPayload
 class APICheckPayload(BaseTxPayload):
     """Represent a transaction payload for the APICheckRound."""
 
-    price: Optional[float]
+    bls_index_value: Optional[float]
+    consensus_value: Optional[float]
+    hash_value: Optional[str]
+    different_hash: Optional[bool]
+    round_number: int
 
 
 @dataclass(frozen=True)

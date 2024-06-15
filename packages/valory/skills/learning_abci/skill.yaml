@@ -7,13 +7,13 @@ license: Apache-2.0
 aea_version: '>=1.0.0, <2.0.0'
 fingerprint:
   __init__.py: bafybeiho3lkochqpmes4f235chq26oggmwnol3vjuvhosleoubbjirbwaq
-  behaviours.py: bafybeie5wntanp3fpsuzmpg3qvbu7dbtdpkrzfbzkjox6jxfcdel2tuax4
+  behaviours.py: bafybeiaeh25bmptxpryn764wv33tkiowtmac65gginck2twbd2kfzsyw2m
   dialogues.py: bafybeifqjbumctlffx2xvpga2kcenezhe47qhksvgmaylyp5ypwqgfar5u
   fsm_specification.yaml: bafybeicxvornc7gpvpotob6z46fl7qmataxydn22fr22qnb4ausfg6vppe
   handlers.py: bafybeigjadr4thz6hfpfx5abezbwnqhbxmachf4efasrn4z2vqhsqgnyvi
-  models.py: bafybeichtcnctx3ua2mu5j4uem57ert2shimgl5cma2dha2mkuagrswyaq
-  payloads.py: bafybeidgjtjk2hxrhrlyzpavgbtz3wnjxoqfdw4lqkoty5whd4zzb473he
-  rounds.py: bafybeigmgdws6jkzb3fnnhl6enjxncazlzrah4pbclx2nx72zguddgzvrm
+  models.py: bafybeihdvar7onegn3raqauhatwtt2x2fzy56wxjpgzyc2hjx2wmdxdvt4
+  payloads.py: bafybeictbdmgpbvuwqxfh3jxgn4r3wqfakwcesuv733weud2heghjweqhu
+  rounds.py: bafybeifbfl4cjel3tbtvtlxxyfqofbinhdqerght22olonicrbp7z5z6gy
 fingerprint_ignore_patterns: []
 connections: []
 contracts:
@@ -126,12 +126,12 @@ models:
       tendermint_url: http://localhost:26657
       tx_timeout: 10.0
       validate_timeout: 1205
-      service_endpoint_base: https://learning.staging.autonolas.tech/
       coingecko_price_template: https://api.coingecko.com/api/v3/simple/price?ids=autonolas&vs_currencies=usd&x_cg_demo_api_key={api_key}
-      usbls_statement_page: https://www.bls.gov/news.release/cpi.nr0.htm
       coingecko_api_key: null
-      transfer_target_address: '0x0000000000000000000000000000000000000000'
-      erc20_token_address: '0x0000000000000000000000000000000000000000'
+      erc20_token_address: 0x
+      service_endpoint_base: https://learning.staging.autonolas.tech/
+      usbls_statement_page: https://www.bls.gov/news.release/cpi.nr0.htm
+      fxstreet_api_url: https://calendar-api.fxstreet.com/en/api/v1/eventDates/
       wxdai_contract_address: '0xe91d153e0b41518a2ce8dd3d7944fa863463a97d'
       wbtc_contract_address: '0x8e5bbbb09ed1ebde8674cda39a0c169401db4252'
       uniswap_router_address: '0x1C232F01118CB8B424793ae03F870aa7D0ac7f77'
@@ -152,6 +152,8 @@ models:
   tendermint_dialogues:
     args: {}
     class_name: TendermintDialogues
-dependencies: {}
+dependencies:
+  beautifulsoup4:
+    version: ==4.12.3
 is_abstract: true
 customs: []

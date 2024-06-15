@@ -5,11 +5,12 @@
         "contract/valory/uniswap_v2_erc20/0.1.0": "bafybeibkiwytuhhvxbisoxcybrx4lfstk6bvtriltles7fxxpy37yq45ja",
         "contract/valory/multisend/0.1.0": "bafybeiet3of7f5vvhyi5zy4mufeiae6vu5n2lyo27tqconny47tyrpkb2m",
         "connection/valory/ledger/0.19.0": "bafybeic3ft7l7ca3qgnderm4xupsfmyoihgi27ukotnz7b5hdczla2enya",
-        "skill/valory/learning_abci/0.1.0": "bafybeidwx6xc3mprtmc6yglghi44uqy7t6fbmqx5qxc2jlz52ha6nzar5i",
-        "skill/valory/learning_chained_abci/0.1.0": "bafybeia6s2jl7gf34fmyuvekz5cojo5i5kjkcahjpagbjmlel67olbaqmi",
+        "skill/valory/learning_abci/0.1.0": "bafybeigrr5uofno2qiqvi6mrx7ornyb7hbld33xhxy2gjpvw7grh7x7hty",
+        "skill/valory/learning_chained_abci/0.1.0": "bafybeige7rk5gq7e5c6kehugf7ktj2ssq3tnm5faxzgjo5aoonjscnchne",
         "skill/valory/transaction_settlement_abci/0.1.0": "bafybeigtzlk4uakmd54rxnznorcrstsr52kta474lgrnvx5ovr546vj7sq",
-        "agent/valory/learning_agent/0.1.0": "bafybeifoe3qldzjskmqhexczhprizphzmxfcbmfglojwecjpfdb35vmbge",
-        "service/valory/learning_service/0.1.0": "bafybeihwphyiuipueqkm5o55xiak2fmwbvqgd2xba4zoxvwmwsp4v6lp54"
+        "skill/valory/termination_abci/0.1.0": "bafybeicj5yw47w6le47tp2kvm22wfme4hxsvbegtfgx7ya3ipyswanwiwq",
+        "agent/valory/learning_agent/0.1.0": "bafybeidwdqfv52cwaykccaawncsrm3ksypbfni523pfeiysx4lwxnu6pem",
+        "service/valory/learning_service/0.1.0": "bafybeic5lb5edxgbwzacnpiks4ihjltwvlos33duv2ck77xpehxntquioi"
     },
     "third_party": {
         "protocol/open_aea/signing/1.0.0": "bafybeihv62fim3wl2bayavfcg3u5e5cxu3b7brtu4cn5xoxd6lqwachasi",
@@ -32,7 +33,6 @@
         "skill/valory/abstract_abci/0.1.0": "bafybeihat4giyc4bz6zopvahcj4iw53356pbtwfn7p4d5yflwly2qhahum",
         "skill/valory/reset_pause_abci/0.1.0": "bafybeidw4mbx3os3hmv7ley7b3g3gja7ydpitr7mxbjpwzxin2mzyt5yam",
         "skill/valory/registration_abci/0.1.0": "bafybeiek7zcsxbucjwzgqfftafhfrocvc7q4yxllh2q44jeemsjxg3rcfm",
-        "skill/valory/abstract_round_abci/0.1.0": "bafybeih3enhagoql7kzpeyzzu2scpkif6y3ubakpralfnwxcvxexdyvy5i",
-        "skill/valory/termination_abci/0.1.0": "bafybeicj5yw47w6le47tp2kvm22wfme4hxsvbegtfgx7ya3ipyswanwiwq"
+        "skill/valory/abstract_round_abci/0.1.0": "bafybeih3enhagoql7kzpeyzzu2scpkif6y3ubakpralfnwxcvxexdyvy5i"
     }
 }
