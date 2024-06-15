@@ -20,6 +20,7 @@
 """This package contains round behaviours of LearningAbciApp."""
 
 from abc import ABC
+from datetime import datetime
 from typing import Generator, List, Set, Type, cast, Optional
 from hexbytes import HexBytes
 
@@ -38,7 +39,7 @@ from packages.valory.contracts.multisend.contract import (
 from packages.valory.contracts.uniswap_v2_router_02.contract import (
     UniswapV2Router02Contract,
 )
-from packages.valory.contracts.uniswap_v2_erc20.contract import UniswapV2ERC20Contract
+from packages.valory.contracts.erc20.contract import ERC20
 from packages.keyko.contracts.deposit_tracker.contract import DepositTracker
 
 from packages.valory.skills.abstract_round_abci.base import AbstractRound
@@ -148,48 +149,66 @@ class TxPreparationBehaviour(
 
         - Step 1: Retrieve the WxDAI balance from the safe.
         - Step 2: Prepare a deposit transaction if WxDAI balance is less than required.
-        - Step 3: Prepare the swap transaction from WxDAI to WBTC.
-        - Step 4: Prepare the transaction to log the swap in DepositTracker.
-        - Step 5: Prepare the multisend transaction.
-        - Step 6: Get the Safe transaction hash for the multisend transaction.
-        - Step 7: Send the transaction payload.
+        - Step 3: Prepare the approve transaction for swapping WxDAI.
+        - Step 4: Prepare the swap transaction from WxDAI to WBTC.
+        - Step 5: Prepare the transaction to log the swap in DepositTracker.
+        - Step 6: Prepare the multisend transaction.
+        - Step 7: Get the Safe transaction hash for the multisend transaction.
+        - Step 8: Send the transaction payload.
         """
         
         with self.context.benchmark_tool.measure(self.behaviour_id).local():
+
+            multi_send_txs = []
+
             # Step 1: Get the balance of WxDAI
-            balance = yield from self._get_ERC20_balance(self.synchronized_data.safe_contract_address)
+            balance = yield from self._get_ERC20_balance(self.synchronized_data.safe_contract_address, self.params.wxdai_contract_address)
             self.context.logger.info(f"WxDAI Balance: {balance}")
+            wbtc_balance = yield from self._get_ERC20_balance(self.synchronized_data.safe_contract_address, self.params.wbtc_contract_address)
+            self.context.logger.info(f"WBTC Balance: {wbtc_balance}")
 
             # Step 2: Prepare the deposit transaction if needed
             if balance is None or balance < self.params.trade_amount:
                 deposit_amount = self.params.trade_amount - balance if balance else self.params.trade_amount
                 deposit_txn = yield from self._prepare_deposit_tx(deposit_amount)
                 self.context.logger.info(f"Deposit tx prepared: {deposit_txn}")
+                multi_send_txs.append(deposit_txn)
 
-            # Step 3: Prepare the swap transaction
-            swap_txn = yield from self._prepare_swap_tx()
+            # Step 3: Prepare the approve transaction
+            approve_txn = yield from self._prepare_approve_tx(self.params.wxdai_contract_address, self.params.trade_amount)
+            self.context.logger.info(f"Approve tx prepared: {approve_txn}")
+            multi_send_txs.append(approve_txn)
+
+            # Step 4: Prepare the swap transaction
+            # Retrieve the estimated output amount
+            estimated_out = yield from self._get_amounts_out(self.params.trade_amount)
+            self.context.logger.info(f"Estimated out: {estimated_out}")
+            # Apply the slippage tolerance
+            amount_out_min = int(estimated_out * (1 - self.params.slippage_tolerance))
+
+            swap_txn = yield from self._prepare_swap_tx(amount_out_min)
             self.context.logger.info(f"Swap tx prepared: {swap_txn}")
+            multi_send_txs.append(swap_txn)
 
-            # Step 4: Prepare the DepositTracker transaction
-            deposit_tracker_tx = yield from self._prepare_deposit_tracker_tx(swap_txn["amount_out"])
+            # Step 5: Prepare the DepositTracker transaction
+            deposit_tracker_tx = yield from self._prepare_deposit_tracker_tx(amount_out_min)
             self.context.logger.info(f"DepositTracker tx prepared: {deposit_tracker_tx}")
+            multi_send_txs.append(deposit_tracker_tx)
 
-            # Step 5: Build the multisend transaction
-            multi_send_txs = [deposit_txn, swap_txn, deposit_tracker_tx]
-
+            # Step 6: Build the multisend transaction
             multisend_data = yield from self._prepare_multisend_tx(multi_send_txs)
             self.context.logger.info(f"Multisend data prepared: {multisend_data}")
 
-            # Step 6: Get the Safe transaction hash for the multisend transaction
+            # Step 7: Get the Safe transaction hash for the multisend transaction
             safe_tx_hash = yield from self._get_safe_tx_hash(multisend_data)
             self.context.logger.info(f"Safe tx hash: {safe_tx_hash}")
 
-            # Step 7: Prepare the payload
+            # Step 8: Prepare the payload
             payload_string = hash_payload_to_hex(
                 safe_tx_hash=safe_tx_hash,
                 ether_value=0,
                 safe_tx_gas=SAFE_GAS,
-                to_address=self.synchronized_data.multisend_contract_address,
+                to_address=self.params.multisend_contract_address,
                 data=bytes.fromhex(multisend_data),
                 operation=SafeOperation.DELEGATE_CALL.value,
             )
@@ -204,7 +223,7 @@ class TxPreparationBehaviour(
 
         self.set_done()
 
-    def _get_ERC20_balance(self, addr: str) -> Generator[None, None, Optional[int]]:
+    def _get_ERC20_balance(self, addr: str, contract_address) -> Generator[None, None, Optional[int]]:
         """
         Retrieve the balance of WxDAI for a given address.
 
@@ -213,8 +232,8 @@ class TxPreparationBehaviour(
         """
         response_msg = yield from self.get_contract_api_response(
             performative=ContractApiMessage.Performative.GET_STATE,  # type: ignore
-            contract_address=self.params.wxdai_contract_address,
-            contract_id=str(UniswapV2ERC20Contract.contract_id),
+            contract_address=contract_address,
+            contract_id=str(ERC20.contract_id),
             contract_callable="check_balance",
             account=addr,
             chain_id=GNOSIS_CHAIN_ID
@@ -224,7 +243,36 @@ class TxPreparationBehaviour(
             self.context.logger.error(f"Could not get the balance: {response_msg}")
             return None
 
-        return response_msg.state.body.get("balance", None)
+        return response_msg.state.body.get("token", None)
+    
+    def _prepare_approve_tx(self, token_address: str, amount: int) -> Generator[None, None, dict]:
+        """
+        Prepare the approval transaction for a given token.
+
+        :param token_address: The address of the token contract.
+        :param amount: The amount to approve.
+        :return: The prepared approval transaction.
+        """
+
+        # Build the transaction data for the approval operation on the ERC20 contract
+        contract_api_msg = yield from self.get_contract_api_response(
+            performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,
+            contract_address=token_address,
+            contract_id=str(ERC20.contract_id),
+            contract_callable="build_approval_tx",
+            spender=self.params.uniswap_router_address,
+            amount=amount,
+            chain_id=GNOSIS_CHAIN_ID,
+        )
+
+        approve_data = cast(bytes, contract_api_msg.raw_transaction.body["data"])
+
+        return {
+            "operation": MultiSendOperation.CALL,
+            "to": token_address,
+            "value": 0,
+            "data": HexBytes(approve_data.hex()),
+        }
     
     def _get_amounts_out(self, amount_in: int) -> Generator[None, None, int]:
         """
@@ -233,19 +281,24 @@ class TxPreparationBehaviour(
         :param amount_in: The amount of input tokens.
         :return: The estimated amount of output tokens.
         """
+
         path = [self.params.wxdai_contract_address, self.params.wbtc_contract_address]
+
         contract_api_msg = yield from self.get_contract_api_response(
-            performative=ContractApiMessage.Performative.CALL,
+            performative=ContractApiMessage.Performative.GET_STATE,
             contract_address=self.params.uniswap_router_address,
             contract_id=str(UniswapV2Router02Contract.contract_id),
-            contract_callable="getAmountsOut",
+            contract_callable="get_amounts_out",
             amount_in=amount_in,
             path=path,
+            chain_id=GNOSIS_CHAIN_ID,
         )
+
         if contract_api_msg.performative != ContractApiMessage.Performative.STATE:
             self.context.logger.error(f"Could not get amounts out: {contract_api_msg}")
             return 0  
-        return contract_api_msg.state.body["amounts"][-1]
+
+        return contract_api_msg.state.body["amounts"][1]
     
     def _prepare_deposit_tx(self, deposit_amount: int) -> Generator[None, None, dict]:
         """
@@ -259,45 +312,40 @@ class TxPreparationBehaviour(
         contract_api_msg = yield from self.get_contract_api_response(
             performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,
             contract_address=self.params.wxdai_contract_address,
-            contract_id=str(UniswapV2ERC20Contract.contract_id),
+            contract_id=str(ERC20.contract_id),
             contract_callable="build_deposit_tx",
             chain_id=GNOSIS_CHAIN_ID,
         )
+        deposit_data = cast(bytes, contract_api_msg.raw_transaction.body["data"])
 
         return {
             "operation": MultiSendOperation.CALL,
             "to": self.params.wxdai_contract_address,
             "value": deposit_amount,  # Send the deposit amount
-            "data": HexBytes(contract_api_msg.raw_transaction.body["data"].hex()),
+            "data": HexBytes(deposit_data.hex()),
         }
     
-    def _prepare_swap_tx(self) -> Generator[None, None, dict]:
+    def _prepare_swap_tx(self, amount_out_min) -> Generator[None, None, dict]:
         """
         Prepare the swap transaction on Uniswap.
 
         :return: The prepared swap transaction.
         """
         path = [self.params.wxdai_contract_address, self.params.wbtc_contract_address]
-        deadline = int(self.context.now.timestamp() + 600)  # 10 minutes from now
-
-        # Retrieve the estimated output amount
-        estimated_out = yield from self._get_amounts_out(self.params.trade_amount, path)
-
-        # Apply the slippage tolerance
-        amount_out_min = int(estimated_out * (1 - self.params.slippage_tolerance))
+        deadline = int(datetime.now().timestamp() + 60)  # 60 seconds from now
 
         # Prepare the swap transaction
         contract_api_msg = yield from self.get_contract_api_response(
             performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,
             contract_address=self.params.uniswap_router_address,
             contract_id=str(UniswapV2Router02Contract.contract_id),
-            contract_callable="get_method_data",
-            method_name="swapExactTokensForTokens",
+            contract_callable="swap_exact_tokens_for_tokens",
             amount_in=self.params.trade_amount,
             amount_out_min=amount_out_min,
             path=path,
-            to=self.synchronized_data.safe_contract_address,
+            to_address=self.synchronized_data.safe_contract_address,
             deadline=deadline,
+            chain_id=GNOSIS_CHAIN_ID,
         )
         swap_data = cast(bytes, contract_api_msg.raw_transaction.body["data"])
 
@@ -319,16 +367,17 @@ class TxPreparationBehaviour(
             performative=ContractApiMessage.Performative.GET_RAW_TRANSACTION,
             contract_address=self.params.deposit_tracker_address,
             contract_id=str(DepositTracker.contract_id),
-            contract_callable="addLog",
+            contract_callable="add_log",
             amount=amount_swapped,
+            sender_address=self.synchronized_data.safe_contract_address,
             chain_id=GNOSIS_CHAIN_ID,
         )
-
+        deposit_tracker_data = cast(bytes, contract_api_msg.raw_transaction.body["data"])
         return {
             "operation": MultiSendOperation.CALL,
             "to": self.params.deposit_tracker_address,
             "value": 0,
-            "data": HexBytes(contract_api_msg.raw_transaction.body["data"].hex()),
+            "data": HexBytes(deposit_tracker_data.hex()),
         }
     
     def _prepare_multisend_tx(self, txs: List[dict]) -> Generator[None, None, str]:
@@ -344,9 +393,11 @@ class TxPreparationBehaviour(
             contract_id=str(MultiSendContract.contract_id),
             contract_callable="get_tx_data",
             multi_send_txs=txs,
+            chain_id=GNOSIS_CHAIN_ID
         )
 
-        multisend_data = contract_api_msg.raw_transaction.body["data"][2:]
+        multisend_data = cast(str, contract_api_msg.raw_transaction.body["data"])
+        multisend_data = multisend_data[2:]
         return multisend_data
     
     def _get_safe_tx_hash(self, multisend_data: str) -> Generator[None, None, str]:
@@ -361,12 +412,13 @@ class TxPreparationBehaviour(
             contract_address=self.synchronized_data.safe_contract_address,
             contract_id=str(GnosisSafeContract.contract_id),
             contract_callable="get_raw_safe_transaction_hash",
-            to_address=self.synchronized_data.multisend_contract_address,
+            to_address=self.params.multisend_contract_address,
             value=0,
-            data=bytes.fromhex(multisend_data),
+            data=multisend_data,
             operation=SafeOperation.DELEGATE_CALL.value,
             safe_tx_gas=SAFE_GAS,
-            safe_nonce=self.synchronized_data.safe_nonce,
+            #safe_nonce=0,
+            chain_id=GNOSIS_CHAIN_ID
         )
 
         safe_tx_hash = contract_api_msg.raw_transaction.body["tx_hash"][2:]

@@ -21,8 +21,8 @@ skills:
 - valory/abstract_round_abci:0.1.0:bafybeih3enhagoql7kzpeyzzu2scpkif6y3ubakpralfnwxcvxexdyvy5i
 - valory/registration_abci:0.1.0:bafybeiek7zcsxbucjwzgqfftafhfrocvc7q4yxllh2q44jeemsjxg3rcfm
 - valory/reset_pause_abci:0.1.0:bafybeidw4mbx3os3hmv7ley7b3g3gja7ydpitr7mxbjpwzxin2mzyt5yam
-- valory/termination_abci:0.1.0:bafybeihq6qtbwt6i53ayqym63vhjexkcppy26gguzhhjqywfmiuqghvv44
-- valory/learning_abci:0.1.0:bafybeibtlhosao5dzgclxzbrwbfudlartncyoyi3xl56ee63xdnorknobe
+- valory/termination_abci:0.1.0:bafybeicj5yw47w6le47tp2kvm22wfme4hxsvbegtfgx7ya3ipyswanwiwq
+- valory/learning_abci:0.1.0:bafybeidwx6xc3mprtmc6yglghi44uqy7t6fbmqx5qxc2jlz52ha6nzar5i
 - valory/transaction_settlement_abci:0.1.0:bafybeigtzlk4uakmd54rxnznorcrstsr52kta474lgrnvx5ovr546vj7sq
 behaviours:
   main:
@@ -140,6 +140,13 @@ models:
       default_chain_id: gnosis
       transfer_target_address: '0x0000000000000000000000000000000000000000'
       erc20_token_address: '0x0000000000000000000000000000000000000000'
+      wxdai_contract_address: '0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d'
+      wbtc_contract_address: '0x8e5bBbb09Ed1ebdE8674Cda39A0c169401db4252'
+      uniswap_router_address: '0x1C232F01118CB8B424793ae03F870aa7D0ac7f77'
+      deposit_tracker_address: '0x632ffD8A237C004Ea8f91d06547427B0410033DC'
+      multisend_contract_address: '0xA349a37dD7EaF03218c7321a87Bf6a2a13Eb86B5'
+      trade_amount: 10000000000000000000
+      slippage_tolerance: 0.01
     class_name: Params
   randomness_api:
     args:

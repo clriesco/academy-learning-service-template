@@ -59,4 +59,20 @@ class Params(BaseParams):
             "usbls_statement_page", kwargs, str
         )
 
+        self.wxdai_contract_address = self._ensure("wxdai_contract_address", kwargs, str)
+        self.wbtc_contract_address = self._ensure("wbtc_contract_address", kwargs, str)
+
+        self.trade_amount = self._ensure("trade_amount", kwargs, int)
+        self.uniswap_router_address = self._ensure(
+            "uniswap_router_address", kwargs, str
+        )
+        self.slippage_tolerance = self._ensure("slippage_tolerance", kwargs, float)
+
+        self.deposit_tracker_address = self._ensure(
+            "deposit_tracker_address", kwargs, str
+        )
+        self.multisend_contract_address = self._ensure(
+            "multisend_contract_address", kwargs, str
+        )
+
         super().__init__(*args, **kwargs)
