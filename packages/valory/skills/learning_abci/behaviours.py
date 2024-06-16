@@ -20,7 +20,7 @@
 """This package contains round behaviours of LearningAbciApp."""
 
 from abc import ABC
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Generator, List, Set, Type, cast, Optional
 from hexbytes import HexBytes
 import re
@@ -127,10 +127,10 @@ class APICheckBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
                 timeout=10.0
             )
 
-            different_hash = self.synchronized_data.hash_value != ipfs_hash
+            different_hash = self.synchronized_data.hash_value != ipfs_hash if self.synchronized_data.hash_value else False
 
             self.context.logger.info(
-                f"APICheckBehaviour: IPFS hash: {ipfs_hash}, Different hash: {different_hash}"
+                f"APICheckBehaviour: IPFS hash: {ipfs_hash}, prev IPFS hash: {self.synchronized_data.hash_value},  Different hash: {different_hash}"
             )
 
             sender = self.context.agent_address
@@ -153,10 +153,14 @@ class APICheckBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
         """
         Get the data from FXStreet.com which contains the consensus value needed
         """
+
+        begin_of_current_month = datetime.now().replace(day=1).strftime("%Y-%m-%dT00:00:00Z")
+        end_of_current_month = (datetime.now().replace(day=1) + timedelta(days=32)).strftime("%Y-%m-%dT23:59:59Z")
+        url = self.params.fxstreet_api_url + f"{begin_of_current_month}/{end_of_current_month}"
         response = yield from self.get_http_response(
             method="GET",
-            # url=self.params.fxstreet_api_url + "/{fxstreet_from}/{fxstreet_to}",
-            url=self.params.fxstreet_api_url + "/2024-06-12T00:00:00Z/2024-06-13T23:59:59Z",
+            url=url,
+            
             parameters={
                 "volatilities": "HIGH",
                 "countries": "US",
@@ -169,7 +173,8 @@ class APICheckBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
         )
         if response.status_code != 200:
             self.context.logger.error(
-                f"APICheckBehaviour: Could not retrieve data from BLS."
+                f"APICheckBehaviour: url: {url}"
+                f"APICheckBehaviour: Could not retrieve data from fxstreet. "
                 f"APICheckBehaviour: Received status code {response.status_code}."
             )
             self.context.logger.error(f"APICheckBehaviour: Response body: {response.body}")
@@ -180,6 +185,9 @@ class APICheckBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
         
         event_id = "6f846eaa-9a12-43ab-930d-f059069c6646"
         consensus_value = None
+
+        if isinstance(data, dict):
+            return None
 
         for item in data:
             if item["eventId"] == event_id:
@@ -214,7 +222,6 @@ class APICheckBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
             return ""
         
         html_content = response.body.decode('utf-8')
-        self.context.logger.info(f"Received html content from BLS: {html_content}")
         return html_content
 
     def get_index_value(self, html_response: str) -> Optional[float]:

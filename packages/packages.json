@@ -5,12 +5,12 @@
         "contract/valory/uniswap_v2_erc20/0.1.0": "bafybeibkiwytuhhvxbisoxcybrx4lfstk6bvtriltles7fxxpy37yq45ja",
         "contract/valory/multisend/0.1.0": "bafybeiet3of7f5vvhyi5zy4mufeiae6vu5n2lyo27tqconny47tyrpkb2m",
         "connection/valory/ledger/0.19.0": "bafybeic3ft7l7ca3qgnderm4xupsfmyoihgi27ukotnz7b5hdczla2enya",
-        "skill/valory/learning_abci/0.1.0": "bafybeigrr5uofno2qiqvi6mrx7ornyb7hbld33xhxy2gjpvw7grh7x7hty",
-        "skill/valory/learning_chained_abci/0.1.0": "bafybeige7rk5gq7e5c6kehugf7ktj2ssq3tnm5faxzgjo5aoonjscnchne",
+        "skill/valory/learning_abci/0.1.0": "bafybeiefdrymo53wzbiysaia63gweyqrtjpam3z7nnwxoerv34luw7u5ru",
+        "skill/valory/learning_chained_abci/0.1.0": "bafybeifwp3qlozdfnbb4ioxnydh2waovpg32t2sduqmfiqqnz6bfk4vrui",
         "skill/valory/transaction_settlement_abci/0.1.0": "bafybeigtzlk4uakmd54rxnznorcrstsr52kta474lgrnvx5ovr546vj7sq",
         "skill/valory/termination_abci/0.1.0": "bafybeicj5yw47w6le47tp2kvm22wfme4hxsvbegtfgx7ya3ipyswanwiwq",
-        "agent/valory/learning_agent/0.1.0": "bafybeidwdqfv52cwaykccaawncsrm3ksypbfni523pfeiysx4lwxnu6pem",
-        "service/valory/learning_service/0.1.0": "bafybeic5lb5edxgbwzacnpiks4ihjltwvlos33duv2ck77xpehxntquioi"
+        "agent/valory/learning_agent/0.1.0": "bafybeifbpeh5hikdtpt3hr5tswg6y5hywmghgaufw2gl5ljbk7blvkjkna",
+        "service/valory/learning_service/0.1.0": "bafybeifzadkfws6ovy6dulecxpdbgkcm6ldyknotjqr2knt52cj6v3dsl4"
     },
     "third_party": {
         "protocol/open_aea/signing/1.0.0": "bafybeihv62fim3wl2bayavfcg3u5e5cxu3b7brtu4cn5xoxd6lqwachasi",
