@@ -203,6 +203,9 @@ class APICheckBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
         """
         Get the data from BLS.gov which contains the index value needed
         """
+        self.context.logger.info(
+            f"APICheckBehaviour: Getting data from BLS. URL: {self.params.usbls_statement_page}"
+        )
         response = yield from self.get_http_response(
             method="GET",
             url=self.params.usbls_statement_page,
@@ -210,6 +213,7 @@ class APICheckBehaviour(LearningBaseBehaviour):  # pylint: disable=too-many-ance
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
                 "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
                 "Accept-Encoding": "gzip, deflate, br",
+                "ngrok-skip-browser-warning": "1"
             },
         )
         if response.status_code != 200:
@@ -265,12 +269,6 @@ class DecisionMakingBehaviour(
             self.context.logger.info(
                 f"DecisionMakingBehaviour: Round decision: {decision}"
             )
-            
-            if (decision != Event.TRANSACT.value and self.synchronized_data.round_number == 4):
-                self.context.logger.info(
-                    f"DecisionMakingBehaviour: Forcing transaction on 4th period. New decision: {Event.TRANSACT.value}"
-                )
-                decision = Event.TRANSACT.value
             
             sender = self.context.agent_address
             payload = DecisionMakingPayload(sender=sender, event=decision)
