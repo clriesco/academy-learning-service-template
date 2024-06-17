@@ -5,9 +5,9 @@
 This project automates the process of analyzing the Consumer Price Index (CPI) published by the U.S. Bureau of Labor Statistics (BLS) and executing trades based on this data. The agent fetches the CPI data, compares it against consensus values from `fxstreet.com`, and performs automated trading on Uniswap if certain conditions are met. The system is designed to make timely investment decisions based on macroeconomic indicators, taking advantage of market movements.
 
 ## Workflow
-The project uses a state machine with three key states: `ApiCheckState`, `DecisionMakingState`, and `TransactionState`. Each state has specific behaviors and rounds that handle the processes of data capture, decision-making, and transaction execution.
+The project uses a state machine based in `Valory's` [Learning Service](https://github.com/valory-xyz/academy-learning-service-template) with three key modified states: `API Check`, `Decision Making`, and `Tx Preparation`. Each state has specific behaviors and rounds that handle the processes of data capture, decision-making, and transaction execution.
 
-### 1. ApiCheckState
+### 1. API Check
 
 #### 1a. ApiCheckBehaviour
 
@@ -46,7 +46,7 @@ The `ApiCheckRound` aggregates the data gathered by `ApiCheckBehaviour` and prep
     - hash_value (frozen for the period's cycle)
     - different_hash (compares the current and previous hashes)
 
-### 2. DecisionMakingState
+### 2. Decision Making
 #### 2a. DecisionMakingBehaviour
 
 The `DecisionMakingBehaviour` determines whether to initiate a Uniswap transaction based on the CPI data relative to the consensus value. The goal is to make trading decisions that can capitalize on market movements prompted by economic data releases.
@@ -75,9 +75,7 @@ The `DecisionMakingRound` processes the decision made by `DecisionMakingBehaviou
 
     - If not, emits a `NO_MAJORITY` event to restart the cycle.
 
-### 3. TransactionState
-
-#### 3a. TxPreparationBehaviour
+### 3. Tx Preparation
 
 The `TxPreparationBehaviour` handles the preparation of complex financial transactions on Uniswap. This includes verifying balances, depositing funds if necessary, and preparing the execution of the swap while logging the transaction details.
 
@@ -85,24 +83,13 @@ The `TxPreparationBehaviour` handles the preparation of complex financial transa
     - Checks the Safe's balances of `WxDAI` and `WBTC` to ensure there are sufficient funds for the transaction.
     - Fund Deposit: If there isn't enough `WxDAI`, deposits additional xDAI into the WxDAI contract.
 - **Approval:**
-    - Approves the Uniswap router to spend the required amount of WxDAI.
+    Approves the Uniswap router to spend the required amount of WxDAI.
 - **Slippage Calculation:**
-    - Estimates the minimum amount of `WBTC` to receive, accounting for slippage to protect against market volatility.
+    Estimates the minimum amount of `WBTC` to receive, accounting for slippage to protect against market volatility.
 - **Swap Execution:**
     Performs the swap of `WxDAI` for `WBTC` on Uniswap.
 - **Transaction Logging:**
     Logs the completed transaction in the `DepositTracker` contract for record-keeping.
-
-**Outputs:**
-
-- **transaction_complete:** Indicates the successful execution of the transaction.
-
-#### 3b. TxPreparationRound
-The `TxPreparationRound` manages the completion of the transaction process.
-
-- **Functionality:**
-    - Executes the batch of transactions prepared by `TxPreparationBehaviour`.
-    - Returns to the initial state upon successful transaction execution, ready to start a new cycle.
 
 ## Technical Modifications
 
